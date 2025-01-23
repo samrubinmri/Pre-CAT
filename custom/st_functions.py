@@ -8,6 +8,7 @@ Created on Wed Jan  8 10:36:34 2025
 
 import streamlit as st
 import pickle
+import os
 
 # Define CSS and HTML for hover effect
 def add_hoverable_title_with_image(title_text, image_url):

@@ -73,14 +73,14 @@ st.markdown(
 st.write("### A preclinical CEST-MRI analysis toolbox.")
 with st.sidebar:
     st.write("""## Instructions and Disclaimer
-Specify experiment type(s), organ of interest (other for phantoms), and file locations for raw data.
+Specify experiment type(s), organ of interest, and file locations for raw data.
 
 Follow each subsequent step after carefully reading associated instructions.
 
 When using **Pre-CAT**, please remember the following:
 - **Pre-CAT** is not licensed for clinical use and is intended for research purposes only.
 - Due to B0 inhomogeneities, cardiac CEST data is only useful in anterior segments.
-- Each raw data file includes calculated RMSEs in the CEST fitting region. Please refer to these if output data seems noisy.
+- Each raw data file includes calculated RMSE in the CEST fitting region. Please refer to these if output data seems noisy.
     """)
     st.write("""## Citation
 This webapp is associated with the following paper, please cite this work when using **Pre-CAT**. \n
@@ -89,7 +89,10 @@ Weigand-Whittier J, Wendland M, Lam B, et al. *Ungated, plug-and-play cardiac CE
     email = "jweigandwhittier@berkeley.edu"
     encoded_email = "jweigandwhittier&#64;berkeley&#46;edu"
     st.write("## Contact")
-    st.markdown(f"Contact me with any issues or questions: <a href='mailto:{encoded_email}'>{encoded_email}</a>", unsafe_allow_html=True)
+    st.markdown(f"""Contact me with any issues or questions:
+<a href='mailto:{encoded_email}'>{encoded_email}</a>
+                
+Please add **[Pre-CAT]** to the subject line of your email.""", unsafe_allow_html=True)
 
 
 with st.expander("Load data", expanded = not st.session_state.is_submitted):

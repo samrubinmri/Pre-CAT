@@ -50,7 +50,7 @@ def show_segmentation(image, session_state):
     ax.axis('off')
     st.subheader('AHA Segmentation')
     st.pyplot(fig)
-    plt.savefig(image_path + '/aha_segmentation.png', dpi = 300)
+    plt.savefig(image_path + '/aha_segmentation.png', dpi = 300, bbox_inches="tight")
     
 def show_rois(image, session_state):
     masks = session_state.user_geometry["masks"]  # Retrieve the masks dictionary
@@ -84,7 +84,7 @@ def show_rois(image, session_state):
     # Display the figure in Streamlit
     st.subheader('ROIs')
     st.pyplot(fig)
-    plt.savefig(image_path + '/rois.png', dpi = 300)
+    plt.savefig(image_path + '/rois.png', dpi = 300, bbox_inches="tight")
 
 def plot_zspec(session_state):
     fits = session_state.processed_data['fits']
@@ -136,7 +136,7 @@ def plot_zspec(session_state):
                 fig.suptitle(roi, fontsize=20, weight='bold', fontname='Arial')
                 plt.grid(False)
                 st.pyplot(fig)
-                plt.savefig(plot_path + '/' + roi + '_zspec.png', dpi = 300)
+                plt.savefig(plot_path + '/' + roi + '_zspec.png', dpi = 300, bbox_inches="tight")
 
     # Lorentzian Difference Plots
     st.subheader("Lorentzian Difference Plots")
@@ -168,4 +168,4 @@ def plot_zspec(session_state):
                 fig.suptitle(roi, fontsize=20, weight='bold', fontname='Arial')
                 plt.grid(False)
                 st.pyplot(fig)
-                plt.savefig(plot_path + '/' + roi + '_lorentzian_dif.png', dpi = 300)
+                plt.savefig(plot_path + '/' + roi + '_lorentzian_dif.png', dpi = 300, bbox_inches="tight")
