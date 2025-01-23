@@ -15,7 +15,11 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import Normalize
 
 def pixelwise_mapping(image, session_state):
-    masks = session_state.user_geometry["masks"]
+    if session_state.submitted_data['organ'] == 'Cardiac':
+        masks = {}
+        masks["lv"] = session_state.user_geometry["masks"]["lv"]
+    else:
+        masks = session_state.user_geometry["masks"]
     fits = session_state.processed_data["pixelwise"]["fits"]
     save_path = session_state.submitted_data["save_path"]
     image_path = os.path.join(save_path, 'Images')
