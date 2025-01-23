@@ -10,7 +10,78 @@ import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
 from matplotlib.patches import Patch
+from scipy.signal import medfilt2d
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.colors import Normalize
 
+def pixelwise_mapping(image, session_state):
+    masks = session_state.user_geometry["masks"]
+    fits = session_state.processed_data["pixelwise"]["fits"]
+    save_path = session_state.submitted_data["save_path"]
+    image_path = os.path.join(save_path, 'Images')
+    if not os.path.isdir(image_path):
+        os.makedirs(image_path)
+    
+    # Initialize empty contrast images for all ROIs combined
+    mt_image = np.full_like(image, np.nan, dtype=float)
+    amide_image = np.full_like(image, np.nan, dtype=float)
+    creatine_image = np.full_like(image, np.nan, dtype=float)
+    noe_image = np.full_like(image, np.nan, dtype=float)
+
+    # Iterate through each ROI and populate the contrast images
+    for label, mask in masks.items():
+        data = fits[label]
+        mt_list = [datum["Contrasts"]["MT"] for datum in data]
+        amide_list = [datum["Contrasts"]["Amide"] for datum in data]
+        creatine_list = [datum["Contrasts"]["Creatine"] for datum in data]
+        noe_list = [datum["Contrasts"]["NOE"] for datum in data]
+
+        mask_indices = np.argwhere(mask)
+        for idx, (i, j) in enumerate(mask_indices):
+            mt_image[i, j] = mt_list[idx]
+            amide_image[i, j] = amide_list[idx]
+            creatine_image[i, j] = creatine_list[idx]
+            noe_image[i, j] = noe_list[idx]
+
+    # Apply median filtering to smooth the contrast images
+    mt_image = medfilt2d(mt_image, kernel_size=3)
+    amide_image = medfilt2d(amide_image, kernel_size=3)
+    creatine_image = medfilt2d(creatine_image, kernel_size=3)
+    noe_image = medfilt2d(noe_image, kernel_size=3)
+
+    # Plotting helper function
+    def plot_contrast(base_image, contrast_image, title):
+        fig, ax = plt.subplots(figsize=(6, 6))
+        ax.imshow(base_image, cmap="gray")
+        im = ax.imshow(contrast_image, cmap="viridis", alpha=0.7, norm=Normalize(vmin=0, vmax=np.nanmax(contrast_image)))
+        ax.set_title(title, fontsize=28, weight='bold', fontname='Arial')
+        ax.axis("off")
+        
+        # Add colorbar
+        cbar = fig.colorbar(im, ax=ax, shrink=0.8)
+        cbar.set_label("CEST Contrast (%)", fontsize=16)
+        cbar.ax.tick_params(labelsize=14)
+
+        return fig
+
+    # Displaying images in a 2x2 grid using Streamlit
+    st.subheader("Pixelwise Maps")
+    contrasts = [mt_image, amide_image, creatine_image, noe_image]
+    titles = ["MT", "Amide", "Creatine", "NOE"]
+
+    # Use containers to ensure alignment
+    for i in range(0, len(contrasts), 2):  # Iterate in steps of 2
+        with st.container():
+            cols = st.columns(2)
+            with cols[0]:
+                fig = plot_contrast(image, contrasts[i], titles[i])
+                plt.savefig(image_path + '/' + titles[i] + '_Contrast_Map.png', dpi=300, bbox_inches="tight")
+                st.pyplot(fig)
+            with cols[1]:
+                fig = plot_contrast(image, contrasts[i + 1], titles[i + 1])
+                plt.savefig(image_path + '/' + titles[i + 1] + '_Contrast_Map.png', dpi=300, bbox_inches="tight")
+                st.pyplot(fig)
+    
 def show_segmentation(image, session_state):
     # Get vars from session state
     mask = session_state.user_geometry["masks"]["lv"]
@@ -50,7 +121,7 @@ def show_segmentation(image, session_state):
     ax.axis('off')
     st.subheader('AHA Segmentation')
     st.pyplot(fig)
-    plt.savefig(image_path + '/aha_segmentation.png', dpi = 300, bbox_inches="tight")
+    plt.savefig(image_path + '/AHA_Segmentation.png', dpi = 300, bbox_inches="tight")
     
 def show_rois(image, session_state):
     masks = session_state.user_geometry["masks"]  # Retrieve the masks dictionary
@@ -84,7 +155,7 @@ def show_rois(image, session_state):
     # Display the figure in Streamlit
     st.subheader('ROIs')
     st.pyplot(fig)
-    plt.savefig(image_path + '/rois.png', dpi = 300, bbox_inches="tight")
+    plt.savefig(image_path + '/ROIs.png', dpi = 300, bbox_inches="tight")
 
 def plot_zspec(session_state):
     fits = session_state.processed_data['fits']
@@ -133,10 +204,10 @@ def plot_zspec(session_state):
                 ax.set_ylim([0, 1])
                 ax.set_xlabel("Offset frequency (ppm)", fontsize=18, fontname='Arial')
                 ax.set_ylabel("$S/S_0$", fontsize=18, fontname='Arial')
-                fig.suptitle(roi, fontsize=20, weight='bold', fontname='Arial')
+                fig.suptitle(roi, fontsize=28, weight='bold', fontname='Arial')
                 plt.grid(False)
                 st.pyplot(fig)
-                plt.savefig(plot_path + '/' + roi + '_zspec.png', dpi = 300, bbox_inches="tight")
+                plt.savefig(plot_path + '/' + roi + '_Zspec.png', dpi = 300, bbox_inches="tight")
 
     # Lorentzian Difference Plots
     st.subheader("Lorentzian Difference Plots")
@@ -165,7 +236,7 @@ def plot_zspec(session_state):
                 ax.tick_params(axis='both', which='major', labelsize=16)
                 ax.set_xlabel("Offset frequency (ppm)", fontsize=18, fontname='Arial')
                 ax.set_ylabel("CEST Contrast (%)", fontsize=18, fontname='Arial')
-                fig.suptitle(roi, fontsize=20, weight='bold', fontname='Arial')
+                fig.suptitle(roi, fontsize=28, weight='bold', fontname='Arial')
                 plt.grid(False)
                 st.pyplot(fig)
-                plt.savefig(plot_path + '/' + roi + '_lorentzian_dif.png', dpi = 300, bbox_inches="tight")
+                plt.savefig(plot_path + '/' + roi + '_Lorentzian_Dif.png', dpi = 300, bbox_inches="tight")
