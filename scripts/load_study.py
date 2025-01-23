@@ -87,8 +87,6 @@ def rotate_imgs(session_state):
                 session_state.rot_done = True
                 # Save the rotated images to the study
                 imgs = session_state['rotated_imgs']
-                # Save rotation var
-                session_state.user_geometry['rotations'] = ['selected_rotation']
                 session_state.recon['cest']['imgs'] = imgs  # Finalize the rotation and save the rotated images
                 # No need to return the study here; this step can be handled elsewhere in the flow.
                 st.write("Rotation finalized!")

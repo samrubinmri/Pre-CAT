@@ -9,21 +9,114 @@ import os
 import base64
 import io
 import math
-import pickle
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
 from streamlit_drawable_canvas import st_canvas
-from PIL import Image
+from PIL import Image, ImageDraw
+
+def distance(co1, co2):
+    return abs(co1[0] - co2[0])**2 + abs(co1[1] - co2[1])**2
+
+def centroid(array):
+    x_c = 0
+    y_c = 0
+    area = array.sum()
+    it = np.nditer(array, flags=['multi_index'])
+    for i in it:
+        x_c = i * it.multi_index[1] + x_c
+        y_c = i * it.multi_index[0] + y_c
+    return (int(x_c / area), int(y_c / area))
 
 def get_base64_image(image_path):
     with open(image_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode("utf-8")
     
-# def calculate_cardiac_masks(session_state):
-    # polygons = 
-    
+def convert_rois_to_masks(image, rois):
+    masks = {}
+    image_shape = np.shape(image)
+    for name, path_data in rois.items():
+        # Extract coordinates from path data
+        polygon = []
+        for command in path_data:
+            if command[0] in ["M", "L"]:  # "Move" or "Line" commands
+                x, y = command[1], command[2]
+                polygon.append((x, y))  # Add coordinates as a tuple
+            elif command[0] == "z":  # Close path command, ignored for drawing
+                pass
+        # Create a blank mask
+        mask = Image.new("L", (image_shape[1], image_shape[0]), 0)
+        # Handle insertion_points ROI differently
+        if name == "insertion_points" and len(polygon) == 2:
+            # Only mark the first and last points
+            for point in [polygon[0], polygon[-1]]:
+                mask.putpixel(point, 1)
+        elif polygon:  # For other ROIs, draw the polygon as usual
+            ImageDraw.Draw(mask).polygon(polygon, outline=1, fill=1)
+        # Convert the mask to a numpy array
+        masks[name] = np.array(mask).astype(bool)
+    return masks
+
+def calc_lv_mask(masks):
+    lv = np.logical_and(masks['epicardium'], np.logical_not(masks['endocardium']))
+    return lv 
+
+def aha_segmentation(image, session_state):
+    mask = session_state.user_geometry['masks']['lv']
+    ip_mask = session_state.user_geometry['masks']['insertion_points']
+    mask_coords = np.argwhere(mask)
+    ip_coords = np.argwhere(ip_mask)
+    ip_coords = np.array([ip_coords[0], ip_coords[-1]])
+    ## Get points in myocardium with closest proximity to defined insertion points ##
+    insertion_points = []
+    for coord in ip_coords:
+        closest = mask_coords[0]
+        for c in mask_coords:
+            if distance(c, coord) < distance(closest, coord):
+                closest = c
+        insertion_points.append(closest)
+    arv = insertion_points[0]
+    #st.write(arv)
+    irv = insertion_points[1]
+    #st.write(irv)
+    [cx, cy] = centroid(mask)
+    #st.write([cx,cy])
+    [y, x] = np.nonzero(mask)
+    inds = np.nonzero(mask)
+    inds = list(zip(inds[0], inds[1]))
+    # Offset all points by centroid
+    x = x - cx
+    y = y - cy
+    arvx = arv[1] - cx
+    arvy = arv[0] - cy
+    irvx = irv[1] - cx
+    irvy = irv[0] - cy
+    # Find angular segment cutoffs
+    pi = math.pi
+    angle = lambda a, b: (math.atan2(a, b)) % (2 * pi)
+    arv_ang = angle(arvy, arvx)
+    irv_ang = angle(irvy, irvx)
+    ang = [angle(yc, xc) for yc, xc in zip(y, x)]
+    sept_cutoffs = np.linspace(0, arv_ang - irv_ang, num=3)  # two septal segments
+    wall_cutoffs = np.linspace(arv_ang - irv_ang, 2 * pi, num=5)  # four wall segments
+    cutoffs = []
+    cutoffs.extend(sept_cutoffs)
+    cutoffs.extend(wall_cutoffs[1:])
+    ang = [(a - irv_ang) % (2 * pi) for a in ang]
+    # Create arrays of each pixel/index in each segment
+    segment_image = lambda a, b: [j for (i, j) in enumerate(inds) if ang[i] >= a and ang[i] < b]
+    get_pixels = lambda inds: [image[i] for i in inds]
+    segmented_indices = [segment_image(a, b) for a, b in zip(cutoffs[:6], cutoffs[1:])]
+    segmented_pixels = [get_pixels(inds) for inds in segmented_indices]
+    # List of labeled segments
+    labeled_segments = {}
+    labeled_segments['Inferoseptal'] = segmented_indices[0]
+    labeled_segments['Anteroseptal'] = segmented_indices[1]
+    labeled_segments['Anterior'] = segmented_indices[2]
+    labeled_segments['Anterolateral'] = segmented_indices[3]
+    labeled_segments['Inferolateral'] = segmented_indices[4]
+    labeled_segments['Inferior'] = segmented_indices[5]
+    session_state.user_geometry["aha"] = labeled_segments
     
 def draw_rois(session_state, data):
     # Load images
@@ -136,7 +229,6 @@ def draw_rois(session_state, data):
                         original_coords.append([cmd[0]])
                 
                 rois[name] = original_coords
-                st.write(rois)
             session_state.user_geometry["rois"] = rois
                 
                 #st.write("Original Coordinates:", original_coords) # For debugging

@@ -7,6 +7,7 @@ Created on Wed Jan  8 10:36:34 2025
 """
 
 import streamlit as st
+import pickle
 
 # Define CSS and HTML for hover effect
 def add_hoverable_title_with_image(title_text, image_url):
@@ -79,7 +80,7 @@ def add_hoverable_title_with_image_inline(title_text, image_url):
             opacity: 0;
             position: absolute;
             top: 0; /* Align with the text */
-            left: 105%; /* Position slightly to the right of the text */
+            left: 90%; /* Position slightly to the right of the text */
             transform: translateX(10px); /* Add a small gap from the text */
             transition: opacity 0.3s, visibility 0.3s;
             z-index: 999;
@@ -109,3 +110,12 @@ def add_hoverable_title_with_image_inline(title_text, image_url):
     # Inject the CSS and HTML into Streamlit
     st.markdown(hover_css, unsafe_allow_html=True)
     return hover_html
+        
+def save_raw(session_state):
+    save_path = session_state.submitted_data["save_path"]
+    file_path = os.path.join(save_path, "Raw")
+    if not os.path.isdir(file_path):
+        os.makedirs(file_path)
+    pickle_path = os.path.join(file_path, "raw_data.pkl")
+    with open(pickle_path, "wb") as f:
+        pickle.dump(dict(session_state), f)

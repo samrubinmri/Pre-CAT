@@ -8,10 +8,11 @@ Created on Tue Jan  7 12:35:44 2025
 
 import streamlit as st
 import os
-from scripts import load_study, draw_rois, cest_fitting, wassr, misc
+from scripts import load_study, draw_rois, cest_fitting, plotting, wassr
 from custom import st_functions
-import pickle as pkl
-import pyautogui
+
+site_icon = "./custom/icons/SitePic.ico"
+st.set_page_config(page_title="Pre-CAT", initial_sidebar_state="expanded", page_icon = site_icon)
 
 if "is_submitted" not in st.session_state:
     st.session_state.is_submitted = False
@@ -19,6 +20,10 @@ if "submitted_data" not in st.session_state:
     st.session_state.submitted_data = {}
 if "processing_active" not in st.session_state:
     st.session_state.processing_active = False
+if "is_processed" not in st.session_state:
+    st.session_state.is_processed = False
+if "display_data" not in st.session_state:
+    st.session_state.display_data = False
     
 def clear_session_state():
     """Clear all session state."""
@@ -55,7 +60,7 @@ def validate_rectilinear(path):
 
 hoverable_pre_cat = st_functions.add_hoverable_title_with_image_inline(
     "Pre-CAT",  # The title text
-    "https://i.ibb.co/PgCH1Tg/Subject-2.png"  # Replace with your image URL
+    "https://i.ibb.co/gMQ7MCb/Subject-4.png"  # Replace with your image URL
 )
 
 # Combine the static title and hoverable title into one header
@@ -65,11 +70,26 @@ st.markdown(
 )
 
 # Add description text
-st.write("### A preclinical CEST-MRI analysis tool.")
+st.write("### A preclinical CEST-MRI analysis toolbox.")
 with st.sidebar:
-    st.write("""This webapp is associated with the following paper, please cite this work when using **Pre-CAT**.
-## Citation
+    st.write("""## Instructions and Disclaimer
+Specify experiment type(s), organ of interest (other for phantoms), and file locations for raw data.
+
+Follow each subsequent step after carefully reading associated instructions.
+
+When using **Pre-CAT**, please remember the following:
+- **Pre-CAT** is not licensed for clinical use and is intended for research purposes only.
+- Due to B0 inhomogeneities, cardiac CEST data is only useful in anterior segments.
+- Each raw data file includes calculated RMSEs in the CEST fitting region. Please refer to these if output data seems noisy.
+    """)
+    st.write("""## Citation
+This webapp is associated with the following paper, please cite this work when using **Pre-CAT**. \n
 Weigand-Whittier J, Wendland M, Lam B, et al. *Ungated, plug-and-play cardiac CEST-MRI using radial FLASH with segmented saturation*. Magn Reson Med (2024). 10.1002/mrm.30382""")
+
+    email = "jweigandwhittier@berkeley.edu"
+    encoded_email = "jweigandwhittier&#64;berkeley&#46;edu"
+    st.write("## Contact")
+    st.markdown(f"Contact me with any issues or questions: <a href='mailto:{encoded_email}'>{encoded_email}</a>", unsafe_allow_html=True)
 
 
 with st.expander("Load data", expanded = not st.session_state.is_submitted):
@@ -77,7 +97,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
     organs = ["Cardiac", "Other"]
     col1, col2 = st.columns((1,1))
     with col1:
-        selection = st.pills("Experiment types", options, selection_mode="multi")
+        selection = st.pills("Experiment type(s)", options, selection_mode="multi")
     with col2:
         anatomy = st.pills("Organ of interest", organs)
     
@@ -109,7 +129,34 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                 if not cest_path:
                     all_fields_filled = False  # CEST path is required
                 if cest_path:
-                    cest_type = st.radio('CEST acquisition type', ["Radial", "Rectilinear"], horizontal=True)
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        cest_type = st.radio('CEST acquisition type', ["Radial", "Rectilinear"], horizontal=True)
+                    with col2:
+                        st.markdown(
+                        """
+                        <style>
+                        .custom-label {
+                            font-size: 0.875rem; /* Matches theme.fontSizes.sm */
+                            display: flex;
+                            align-items: center;
+                            margin-bottom: 0.25rem; /* Matches theme.spacing.twoXS */
+                            min-height: 1.25rem; /* Matches theme.fontSizes.xl */
+                            font-family: 'Source Sans Pro', sans-serif;
+                            font-weight: normal; /* Ensure weight matches */
+                            line-height: 1.6; /* Ensures vertical alignment */
+                        }
+                        </style>
+                        <label class="custom-label">
+                          Additional settings
+                        </label>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                        )
+
+                        pixelwise = st.checkbox(
+                            'Pixelwise mapping', help="Accuracy is highly dependent on field homogeneity. Use and interpret at your own risk!")
                     if not cest_type:
                         all_fields_filled = False  # CEST acquisition type is required
                     cest_full_path = os.path.join(folder_path, cest_path)
@@ -187,7 +234,6 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
             # Check if all fields are filled before enabling submit
             if all_fields_filled and (cest_validation and wassr_validation and damb1_validation):
                 if st.button("Submit"):
-                    st.success(f"Moving to next steps! Data will be saved in: {save_path}")
                     st.session_state.is_submitted = True
                     st.session_state.submitted_data = {
                         "folder_path": folder_path,
@@ -197,6 +243,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     if "CEST" in selection:
                         st.session_state.submitted_data['cest_path'] = cest_path
                         st.session_state.submitted_data['cest_type'] = cest_type
+                        st.session_state.submitted_data['pixelwise'] = pixelwise
                     if "WASSR" in selection: 
                         st.session_state.submitted_data['wassr_path'] = wassr_path
                         st.session_state.submitted_data['wassr_type'] = wassr_type
@@ -214,18 +261,39 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                 
 if st.session_state.is_submitted:
     st.session_state.processing_active = True
-    with st.expander("Process data", expanded = st.session_state.processing_active):
+    with st.expander("Process data", expanded = not st.session_state.is_processed):
         # Set new session vars
         if "recon" not in st.session_state:
-            st.session_state.recon = {
-                "cest": None,
-                "wassr": None,
-                "damb1": None}
+            st.session_state.recon = {}
+            if 'CEST' in st.session_state.submitted_data['selection']:
+                st.session_state.recon["cest"] = None
+            if 'WASSR' in st.session_state.submitted_data['selection']:
+                st.session_state.recon["wassr"] = None
+            if 'DAMB1' in st.session_state.submitted_data['selection']:
+                st.session_state.recon["damb1"] = None
         if "user_geometry" not in st.session_state:
             st.session_state.user_geometry = {
                 "rotations": None,
                 "rois": None,
                 "masks": None}
+            if st.session_state.submitted_data['organ'] == 'Cardiac':
+                st.session_state.user_geometry["aha"] = None
+        if "processed_data" not in st.session_state:
+            st.session_state.processed_data = {}
+            if 'CEST' in st.session_state.submitted_data['selection']:
+                st.session_state.processed_data["spectra"] = None
+                st.session_state.processed_data["fits"] = None
+                if st.session_state.submitted_data['pixelwise'] == True:
+                    st.session_state.processed_data["pixelwise"] = {
+                        "spectra":None,
+                        "fits":None,
+                        "maps":None}
+            if 'WASSR' in st.session_state.submitted_data['selection']:
+                st.session_state.processed_data["b0_map"] = None
+            if 'DAMB1' in st.session_state.submitted_data['selection']:
+                st.session_state.processed_data["b1_map"] = None
+        if "loading_done" not in st.session_state:
+            st.session_state.loading_done = False
         if "rot_done" not in st.session_state:
             st.session_state.rot_done = False
         if "drift_done" not in st.session_state:
@@ -243,6 +311,7 @@ if st.session_state.is_submitted:
                 if st.session_state.recon['cest'] is None:
                     data_cest = load_study.recon_bruker(cest_path, folder_path)
                     st.session_state.recon['cest'] = data_cest
+                    st.session_state.loading_done = True
             elif cest_type == 'Radial':
                 if 'rotation_stage' not in st.session_state:
                     st.session_state['rotation_stage'] = 'select_rotation'  # Stages: 'select_rotation', 'confirm_rotation', 'finalized'
@@ -258,20 +327,52 @@ if st.session_state.is_submitted:
                         load_study.rotate_imgs(st.session_state)
                     elif st.session_state.rot_done == True:
                         st.success("Rotation finalized!")
-                        if st.session_state.drift_done == False:
-                            load_study.thermal_drift(st.session_state)
-                        elif st.session_state.drift_done == True:
-                            st.success("Thermal drift correction complete!")
-                        if st.session_state.rois_done == False:
-                            if st.session_state.submitted_data['organ'] == 'Cardiac':
-                                draw_rois.cardiac_roi(st.session_state, st.session_state.recon['cest'])
-                            if st.session_state.submitted_data['organ'] == 'Other':
-                                draw_rois.draw_rois(st.session_state, st.session_state.recon['cest'])
-                        elif st.session_state.rois_done == True:
-                            st.success("ROIs submitted!")
-                            st.write(st.session_state.user_geometry["rois"])
-                                
-                            
+                        st.session_state.loading_done = True
+            if st.session_state.loading_done == True:
+                if st.session_state.drift_done == False:
+                    load_study.thermal_drift(st.session_state)
+                elif st.session_state.drift_done == True:
+                    st.success("Thermal drift correction complete!")
+                if st.session_state.rois_done == False:
+                    if st.session_state.submitted_data['organ'] == 'Cardiac':
+                        draw_rois.cardiac_roi(st.session_state, st.session_state.recon['cest'])
+                    if st.session_state.submitted_data['organ'] == 'Other':
+                        draw_rois.draw_rois(st.session_state, st.session_state.recon['cest'])
+                elif st.session_state.rois_done == True:
+                    st.success("ROIs submitted!")
+                    image = st.session_state.recon['cest']['m0']
+                    rois = st.session_state.user_geometry["rois"]
+                    st.session_state.user_geometry['masks'] = draw_rois.convert_rois_to_masks(image, rois)
+                    masks = st.session_state.user_geometry['masks']
+                    if st.session_state.submitted_data['organ'] == 'Cardiac':
+                        st.session_state.user_geometry['masks']['lv'] = draw_rois.calc_lv_mask(masks)
+                        draw_rois.aha_segmentation(image, st.session_state)
+                    imgs = st.session_state.recon['cest']['imgs']
+                    cest_fitting.calc_spectra(imgs, st.session_state)
+                    st.session_state.processed_data["fits"] = cest_fitting.two_step(st.session_state.processed_data['spectra'], st.session_state.recon['cest']['offsets'])
+                    if st.session_state.submitted_data['pixelwise'] == True and st.session_state.processed_data['pixelwise']['fits'] is None:
+                        cest_fitting.calc_spectra_pixelwise(imgs, st.session_state)
+                        st.session_state.processed_data['pixelwise']['fits'] = cest_fitting.per_pixel(st.session_state)
+                    st.success("Fitting complete!")
+                    if "WASSR" not in submitted_data["selection"] and "DAMB1" not in submitted_data["selection"]:
+                        st.session_state.processing_active = False
+                        st.session_state.is_processed = True
+                        st.session_state.display_data = True
+                    
+if st.session_state.display_data == True:      
+    save_path = st.session_state.submitted_data["save_path"]             
+    with st.expander('Display and save results', expanded = st.session_state.display_data):
+        if "CEST" in submitted_data["selection"]:
+            image = st.session_state.recon['cest']['m0']
+            if st.session_state.submitted_data['organ'] == 'Cardiac':
+                plotting.show_segmentation(image, st.session_state)
+            elif st.session_state.submitted_data['organ'] == 'Other':
+                plotting.show_rois(image, st.session_state)
+            plotting.plot_zspec(st.session_state)
+            st_functions.save_raw(st.session_state)
+            st.success("Images, plots, and raw data saved at **%s**" % save_path)
+        #if "WASSR" in submitted_data["selection"]:
+            
 
 if st.button("Reset"):
     st.error("To reset and resubmit, please refresh the page.")
