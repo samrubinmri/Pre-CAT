@@ -80,7 +80,7 @@ Follow each subsequent step after carefully reading associated instructions.
 When using **Pre-CAT**, please remember the following:
 - **Pre-CAT** is not licensed for clinical use and is intended for research purposes only.
 - Due to B0 inhomogeneities, cardiac CEST data is only useful in anterior segments.
-- Each raw data file includes calculated RMSE in the CEST fitting region. Please refer to these if output data seems noisy.
+- Each raw data file includes calculated RMSE in the CEST fitting region. Please refer to this if output data seem noisy.
     """)
     st.write("""## Citation
 This webapp is associated with the following paper, please cite this work when using **Pre-CAT**. \n
@@ -371,6 +371,8 @@ if st.session_state.display_data == True:
                 plotting.show_segmentation(image, st.session_state)
             elif st.session_state.submitted_data['organ'] == 'Other':
                 plotting.show_rois(image, st.session_state)
+            if st.session_state.submitted_data['pixelwise'] == True:
+                plotting.pixelwise_mapping(image, st.session_state)
             plotting.plot_zspec(st.session_state)
             st_functions.save_raw(st.session_state)
             st.success("Images, plots, and raw data saved at **%s**" % save_path)

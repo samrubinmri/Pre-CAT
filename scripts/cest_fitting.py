@@ -264,10 +264,11 @@ def per_pixel(session_state):
     offsets = session_state.recon['cest']['offsets']
     with st.spinner("Performing pixelwise fitting..."):
         for label, pixels in spectra.items():
-            fits[label] = []
-            for spectrum in pixels:
-                result = two_step({label: [spectrum]}, offsets)
-                fits[label].append(result[label])
+                fits[label] = [
+                result[label][0]  # Assuming result[label] is a list with a single dictionary
+                for spectrum in pixels
+                for result in [two_step({label: [spectrum]}, offsets)]
+            ]
     return fits
 
 def wassr(offsets, spectra):
