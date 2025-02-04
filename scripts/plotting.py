@@ -18,8 +18,13 @@ def pixelwise_mapping(image, session_state):
     if session_state.submitted_data['organ'] == 'Cardiac':
         masks = {}
         masks["lv"] = session_state.user_geometry["masks"]["lv"]
+        y_indices, x_indices = np.where(masks["lv"])
+        x_min, x_max = max(np.min(x_indices) - 20, 0), min(np.max(x_indices) + 20, masks["lv"].shape[1])
+        y_min, y_max = max(np.min(y_indices) - 20, 0), min(np.max(y_indices) + 20, masks["lv"].shape[0])
     else:
         masks = session_state.user_geometry["masks"]
+        x_min, x_max = 0, image.shape[1] 
+        y_min, y_max = 0, image.shape[0]
     fits = session_state.processed_data["pixelwise"]["fits"]
     save_path = session_state.submitted_data["save_path"]
     image_path = os.path.join(save_path, 'Images')
@@ -56,8 +61,8 @@ def pixelwise_mapping(image, session_state):
     # Plotting helper function
     def plot_contrast(base_image, contrast_image, title):
         fig, ax = plt.subplots(figsize=(6, 6))
-        ax.imshow(base_image, cmap="gray")
-        im = ax.imshow(contrast_image, cmap="viridis", alpha=0.7, norm=Normalize(vmin=0, vmax=np.nanmax(contrast_image)))
+        ax.imshow(base_image[y_min:y_max,x_min:x_max], cmap="gray")
+        im = ax.imshow(contrast_image[y_min:y_max,x_min:x_max], cmap="viridis", alpha=0.7, norm=Normalize(vmin=0, vmax=np.nanmax(contrast_image)))
         ax.set_title(title, fontsize=28, weight='bold', fontname='Arial')
         ax.axis("off")
         
@@ -114,7 +119,7 @@ def show_segmentation(image, session_state):
         for coord in labeled_segments[segment]:
             segmented[coord[0], coord[1]] = np.array(color, dtype=np.uint8)
     # Set up subplots for the original image and segmentation overlay
-    fig, ax = plt.subplots(1, 1, figsize=(10, 15))
+    fig, ax = plt.subplots(1, 1, figsize=(9, 12))
     # Display the cropped original image with segmentation overlay
     ax.imshow(image[y_min:y_max, x_min:x_max], cmap='gray')
     ax.imshow(segmented[y_min:y_max, x_min:x_max], alpha=0.5)

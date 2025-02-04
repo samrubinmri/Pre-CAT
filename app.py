@@ -132,34 +132,35 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                 if not cest_path:
                     all_fields_filled = False  # CEST path is required
                 if cest_path:
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        cest_type = st.radio('CEST acquisition type', ["Radial", "Rectilinear"], horizontal=True)
-                    with col2:
-                        st.markdown(
-                        """
-                        <style>
-                        .custom-label {
-                            font-size: 0.875rem; /* Matches theme.fontSizes.sm */
-                            display: flex;
-                            align-items: center;
-                            margin-bottom: 0.25rem; /* Matches theme.spacing.twoXS */
-                            min-height: 1.25rem; /* Matches theme.fontSizes.xl */
-                            font-family: 'Source Sans Pro', sans-serif;
-                            font-weight: normal; /* Ensure weight matches */
-                            line-height: 1.6; /* Ensures vertical alignment */
-                        }
-                        </style>
-                        <label class="custom-label">
-                          Additional settings
-                        </label>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                        )
-
-                        pixelwise = st.checkbox(
-                            'Pixelwise mapping', help="Accuracy is highly dependent on field homogeneity. Use and interpret at your own risk!")
+                    #col1, col2 = st.columns(2)
+                    #with col1:
+                    cest_type = st.radio('CEST acquisition type', ["Radial", "Rectilinear"], horizontal=True)
+                    #with col2:
+                    st.markdown(
+                    """
+                    <style>
+                    .custom-label {
+                        font-size: 0.875rem; /* Matches theme.fontSizes.sm */
+                        display: flex;
+                        align-items: center;
+                        margin-bottom: 0.25rem; /* Matches theme.spacing.twoXS */
+                        min-height: 1.25rem; /* Matches theme.fontSizes.xl */
+                        font-family: 'Source Sans Pro', sans-serif;
+                        font-weight: normal; /* Ensure weight matches */
+                        line-height: 1.6; /* Ensures vertical alignment */
+                    }
+                    </style>
+                    <label class="custom-label">
+                      Additional settings
+                    </label>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                    )
+                    pixelwise = st.checkbox(
+                        'Pixelwise mapping', help="Accuracy is highly dependent on field homogeneity.")
+                    reference = st.checkbox(
+                        'Additional reference image', help="Use this option to load an additional reference image for ROI(s)/masking. By default, the unsaturated image is used.")
                     if not cest_type:
                         all_fields_filled = False  # CEST acquisition type is required
                     cest_full_path = os.path.join(folder_path, cest_path)
