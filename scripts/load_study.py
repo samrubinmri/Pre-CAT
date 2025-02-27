@@ -22,6 +22,11 @@ import streamlit as st
 import scripts.BrukerMRI as bruker
 import matplotlib.pyplot as plt
 from scipy.interpolate import interpn
+
+def load_bruker_img(num, directory):
+    data = bruker.ReadExperiment(directory, num)
+    imgs = data.proc_data
+    return imgs
     
 def recon_bruker(num, directory):
     data = bruker.ReadExperiment(directory, num)
