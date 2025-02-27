@@ -24,6 +24,10 @@ if "is_processed" not in st.session_state:
     st.session_state.is_processed = False
 if "display_data" not in st.session_state:
     st.session_state.display_data = False
+if "custom_contrasts" not in st.session_state:
+    st.session_state.custom_contrasts = None
+if "recon" not in st.session_state:
+    st.session_state.recon = {}
     
 def clear_session_state():
     """Clear all session state."""
@@ -94,7 +98,6 @@ Weigand-Whittier J, Wendland M, Lam B, et al. *Ungated, plug-and-play cardiac CE
                 
 Please add **[Pre-CAT]** to the subject line of your email.""", unsafe_allow_html=True)
 
-
 with st.expander("Load data", expanded = not st.session_state.is_submitted):
     options = ["CEST", "WASSR", "DAMB1"]
     organs = ["Cardiac", "Other"]
@@ -157,12 +160,46 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     """,
                     unsafe_allow_html=True,
                     )
-                    pixelwise = st.checkbox(
+                    pixelwise = st.toggle(
                         'Pixelwise mapping', help="Accuracy is highly dependent on field homogeneity.")
-                    reference = st.checkbox(
-                        'Additional reference image', help="Use this option to load an additional reference image for ROI(s)/masking. By default, the unsaturated image is used.")
+                    reference = st.toggle(
+                        'Additional reference image', help="Use this option to load an additional reference image for ROI(s)/masking. By default, the unsaturated (S0/M0) image is used.")
+                    if reference:
+                        all_fields_filled = False
+                        st.session_state.recon["reference"] = None
+                        reference_path = st.text_input('Input reference experiment number', help='Reference image assumed to be rectilinear. Please only use single slice images.')
+                        if reference_path:
+                            reference_full_path = os.path.join(folder_path, reference_path)
+                            all_fields_filled = True
+                            reference_validation = False
+                            if os.path.isdir(reference_full_path):  
+                                reference_validation = True
+                                missing_items = validate_rectilinear(reference_full_path)
+                                if missing_items:
+                                    st.error(f"Reference folder is missing the following required items: {', '.join(missing_items)}")
+                                    reference_validation = False
+                                else:
+                                    reference_image = load_study.load_bruker_img(reference_path, folder_path)
+                                    if reference_image.shape[2] != 1:
+                                        st.error("Reference image contains multislice data! Currently, only single slice data is allowed.")
+                                        reference_validation = False
+                                    else:
+                                       st.session_state.recon["reference"] = reference_image 
+                            else:
+                                st.error(f"Reference folder does not exist: {reference_full_path}")
+                                reference_validation = False
+                                
+                    choose_contrasts = st.toggle(
+                        'Choose contrasts', help="Default contrasts are: amide, creatine, NOE. Water and MT are always fit.")
+                    if choose_contrasts:
+                        contrasts = ["NOE (-2.5 ppm)", "Amide", "Creatine", "Amine", "Hydroxyl"]
+                        default_contrasts = ["NOE (-2.5 ppm)", "Amide", "Creatine"]
+                        contrast_selection = st.pills ("Contrasts", contrasts, default=default_contrasts, selection_mode="multi")
+                        st.session_state.custom_contrasts = contrast_selection
+                    else:
+                        st.session_state.custom_contrasts = None
                     if not cest_type:
-                        all_fields_filled = False  # CEST acquisition type is required
+                        all_fields_filled = False  
                     cest_full_path = os.path.join(folder_path, cest_path)
                     if os.path.isdir(cest_full_path):
                         if cest_type == "Rectilinear" and "traj" in os.listdir(cest_full_path):
@@ -237,25 +274,28 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
             
             # Check if all fields are filled before enabling submit
             if all_fields_filled and (cest_validation and wassr_validation and damb1_validation):
-                if st.button("Submit"):
-                    st.session_state.is_submitted = True
-                    st.session_state.submitted_data = {
-                        "folder_path": folder_path,
-                        "save_path": save_path,
-                        "selection": selection,
-                        "organ": anatomy}
-                    if "CEST" in selection:
-                        st.session_state.submitted_data['cest_path'] = cest_path
-                        st.session_state.submitted_data['cest_type'] = cest_type
-                        st.session_state.submitted_data['pixelwise'] = pixelwise
-                    if "WASSR" in selection: 
-                        st.session_state.submitted_data['wassr_path'] = wassr_path
-                        st.session_state.submitted_data['wassr_type'] = wassr_type
-                    if "DAMB1" in selection:
-                        st.session_state.submitted_data['theta_path'] = theta_path
-                        st.session_state.submitted_data['two_theta_path'] = two_theta_path
-                        
-                    st.rerun()
+                if reference and reference_validation == False:
+                    st.error("Please validate the additional reference image before submitting.")
+                else:
+                    if st.button("Submit"):
+                        st.session_state.is_submitted = True
+                        st.session_state.submitted_data = {
+                            "folder_path": folder_path,
+                            "save_path": save_path,
+                            "selection": selection,
+                            "organ": anatomy}
+                        if "CEST" in selection:
+                            st.session_state.submitted_data['cest_path'] = cest_path
+                            st.session_state.submitted_data['cest_type'] = cest_type
+                            st.session_state.submitted_data['pixelwise'] = pixelwise
+                        if "WASSR" in selection: 
+                            st.session_state.submitted_data['wassr_path'] = wassr_path
+                            st.session_state.submitted_data['wassr_type'] = wassr_type
+                        if "DAMB1" in selection:
+                            st.session_state.submitted_data['theta_path'] = theta_path
+                            st.session_state.submitted_data['two_theta_path'] = two_theta_path
+                            
+                        st.rerun()
             else:
                 if not all_fields_filled:
                     st.error("Please fill in all the required fields before submitting.")
@@ -267,14 +307,12 @@ if st.session_state.is_submitted:
     st.session_state.processing_active = True
     with st.expander("Process data", expanded = not st.session_state.is_processed):
         # Set new session vars
-        if "recon" not in st.session_state:
-            st.session_state.recon = {}
-            if 'CEST' in st.session_state.submitted_data['selection']:
-                st.session_state.recon["cest"] = None
-            if 'WASSR' in st.session_state.submitted_data['selection']:
-                st.session_state.recon["wassr"] = None
-            if 'DAMB1' in st.session_state.submitted_data['selection']:
-                st.session_state.recon["damb1"] = None
+        if 'CEST' in st.session_state.submitted_data['selection']:
+            st.session_state.recon["cest"] = None
+        if 'WASSR' in st.session_state.submitted_data['selection']:
+            st.session_state.recon["wassr"] = None
+        if 'DAMB1' in st.session_state.submitted_data['selection']:
+            st.session_state.recon["damb1"] = None
         if "user_geometry" not in st.session_state:
             st.session_state.user_geometry = {
                 "rotations": None,
@@ -379,6 +417,5 @@ if st.session_state.display_data == True:
             st.success("Images, plots, and raw data saved at **%s**" % save_path)
         #if "WASSR" in submitted_data["selection"]:
             
-
 if st.button("Reset"):
     st.error("To reset and resubmit, please refresh the page.")

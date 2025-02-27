@@ -247,10 +247,10 @@ def _process_spectrum(offsets, spectrum, n_interp):
     except RuntimeError:
         # Fill outputs with zeros if curve fitting fails
         fit_parameters = [np.zeros(6), np.zeros(9)]
-        contrasts= {'Water': 0, 'Mt': 0, 'Noe': 0, 'Creatine': 0, 'Amide': 0}
+        contrasts= {'Water': 0, 'MT': 0, 'NOE': 0, 'Creatine': 0, 'Amide': 0}
         data_dict = {'Zspec': spectrum, 'Offsets': offsets, 'Offsets_Corrected': offsets_corrected,
-                    'Offsets_Interp': offsets_interp, 'Water_Fit': np.zeros(n_interp), 'Mt_Fit': np.zeros(n_interp),
-                    'Noe_Fit': np.zeros(n_interp), 'Creatine_Fit': np.zeros(n_interp), 
+                    'Offsets_Interp': offsets_interp, 'Water_Fit': np.zeros(n_interp), 'MT_Fit': np.zeros(n_interp),
+                    'NOE_Fit': np.zeros(n_interp), 'Creatine_Fit': np.zeros(n_interp), 
                     'Amide_Fit': np.zeros(n_interp), 'Lorentzian_Difference': np.zeros(n_interp)}
         spectrum_region = 0
         total_fit_region = 0
