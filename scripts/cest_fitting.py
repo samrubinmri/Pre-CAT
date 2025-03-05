@@ -43,18 +43,24 @@ p0_mt = [0.15, 40, -1]
 p0_noe = [0.05, 1, -2.75]
 p0_creatine = [0.05, 0.5, 2.0]
 p0_amide = [0.05, 1.5, 3.5]
+p0_amine = [0.05, 1.5, 2.5]
+p0_hydroxyl = [0.05, 1.5, 0.6]
 ##Lower bounds for curve fitting##
 lb_water = [0.02, 0.01, -1e-6]
 lb_mt = [0.0, 30, -2.5]
 lb_noe = [0.0, 0.5, -4.5]
 lb_creatine = [0.0, 0.5, 1.6]
 lb_amide = [0.0, 0.5, 3.2]
+lb_amine = [0.0, 0.1, 2.2]
+lb_hydroxyl = [0.0, 0.1, 0.4]
 ##Upper bounds for curve fitting##
 ub_water = [1, 10, 1e-6]
 ub_mt = [0.5, 60, 0]
 ub_noe = [0.25, 5, -1.5]
 ub_creatine = [0.5, 5, 2.6]
 ub_amide = [0.3, 5, 4.0]
+ub_amine = [0.3, 5, 2.8]
+ub_hydroxyl = [0.3, 5, 0.8]
 
 ##Combine for curve fitting##
 #Step 1
