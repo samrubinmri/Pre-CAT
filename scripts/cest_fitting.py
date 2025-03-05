@@ -56,10 +56,6 @@ ub_noe = [0.25, 5, -1.5]
 ub_creatine = [0.5, 5, 2.6]
 ub_amide = [0.3, 5, 4.0]
 
-##Try different starting points for water and creatine FWHM in phantom##
-# p0_water = [0.8, 0.1, 0]
-# p0_creatine = [0.05, 0.25, 2.6]
-
 ##Combine for curve fitting##
 #Step 1
 p0_1 = p0_water + p0_mt

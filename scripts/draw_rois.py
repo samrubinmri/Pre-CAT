@@ -14,6 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from streamlit_drawable_canvas import st_canvas
 from PIL import Image, ImageDraw
+from scipy.ndimage import zoom
 
 def distance(co1, co2):
     return abs(co1[0] - co2[0])**2 + abs(co1[1] - co2[1])**2
@@ -118,7 +119,7 @@ def aha_segmentation(image, session_state):
     labeled_segments['Inferior'] = segmented_indices[5]
     session_state.user_geometry["aha"] = labeled_segments
     
-def draw_rois(session_state, data):
+def draw_rois(session_state, data, cest):
     # Load images
     # Get the directory of the current script
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -130,9 +131,16 @@ def draw_rois(session_state, data):
     download = get_base64_image(download_path)
     undo = get_base64_image(undo_path)
     trash = get_base64_image(trash_path)
-
+    
     # Get image data for ROI
-    m0 = data['m0']  # Replace with your actual image data (numpy array)
+    if isinstance(data, dict) and 'm0' in data:
+        m0 = data['m0']  # Replace with your actual image data (numpy array)
+    else:
+        m0 = data.squeeze()
+        zoom_img = cest['m0']
+        if np.shape(m0) != np.shape(zoom_img):
+            zoom_factors = np.array(zoom_img.shape) / np.array(m0.shape)
+            m0 = zoom(m0, zoom_factors, order=2)  # Try bilinear
 
     # Get image dimensions (height, width)
     img_height, img_width = np.shape(m0)

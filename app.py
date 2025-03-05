@@ -26,8 +26,8 @@ if "display_data" not in st.session_state:
     st.session_state.display_data = False
 if "custom_contrasts" not in st.session_state:
     st.session_state.custom_contrasts = None
-if "recon" not in st.session_state:
-    st.session_state.recon = {}
+if "reference" not in st.session_state:
+    st.session_state.reference = None
     
 def clear_session_state():
     """Clear all session state."""
@@ -166,7 +166,6 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                         'Additional reference image', help="Use this option to load an additional reference image for ROI(s)/masking. By default, the unsaturated (S0/M0) image is used.")
                     if reference:
                         all_fields_filled = False
-                        st.session_state.recon["reference"] = None
                         reference_path = st.text_input('Input reference experiment number', help='Reference image assumed to be rectilinear. Please only use single slice images.')
                         if reference_path:
                             reference_full_path = os.path.join(folder_path, reference_path)
@@ -184,7 +183,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                                         st.error("Reference image contains multislice data! Currently, only single slice data is allowed.")
                                         reference_validation = False
                                     else:
-                                       st.session_state.recon["reference"] = reference_image 
+                                       st.session_state.reference = reference_image 
                             else:
                                 st.error(f"Reference folder does not exist: {reference_full_path}")
                                 reference_validation = False
@@ -307,12 +306,14 @@ if st.session_state.is_submitted:
     st.session_state.processing_active = True
     with st.expander("Process data", expanded = not st.session_state.is_processed):
         # Set new session vars
-        if 'CEST' in st.session_state.submitted_data['selection']:
-            st.session_state.recon["cest"] = None
-        if 'WASSR' in st.session_state.submitted_data['selection']:
-            st.session_state.recon["wassr"] = None
-        if 'DAMB1' in st.session_state.submitted_data['selection']:
-            st.session_state.recon["damb1"] = None
+        if "recon" not in st.session_state:
+            st.session_state.recon = {}
+            if 'CEST' in st.session_state.submitted_data['selection']:
+                st.session_state.recon["cest"] = None
+            if 'WASSR' in st.session_state.submitted_data['selection']:
+                st.session_state.recon["wassr"] = None
+            if 'DAMB1' in st.session_state.submitted_data['selection']:
+                st.session_state.recon["damb1"] = None
         if "user_geometry" not in st.session_state:
             st.session_state.user_geometry = {
                 "rotations": None,
@@ -376,10 +377,14 @@ if st.session_state.is_submitted:
                 elif st.session_state.drift_done == True:
                     st.success("Thermal drift correction complete!")
                 if st.session_state.rois_done == False:
+                    if st.session_state.reference is not None:
+                        reference = st.session_state.reference
+                    else:
+                        reference = st.session_state.recon['cest']
                     if st.session_state.submitted_data['organ'] == 'Cardiac':
-                        draw_rois.cardiac_roi(st.session_state, st.session_state.recon['cest'])
+                        draw_rois.cardiac_roi(st.session_state, reference, st.session_state.recon['cest'])
                     if st.session_state.submitted_data['organ'] == 'Other':
-                        draw_rois.draw_rois(st.session_state, st.session_state.recon['cest'])
+                        draw_rois.draw_rois(st.session_state, reference, st.session_state.recon['cest'])
                 elif st.session_state.rois_done == True:
                     st.success("ROIs submitted!")
                     image = st.session_state.recon['cest']['m0']
