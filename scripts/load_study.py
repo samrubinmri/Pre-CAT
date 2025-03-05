@@ -26,6 +26,7 @@ from scipy.interpolate import interpn
 def load_bruker_img(num, directory):
     data = bruker.ReadExperiment(directory, num)
     imgs = data.proc_data
+    imgs = np.rot90(imgs, k=2)
     return imgs
     
 def recon_bruker(num, directory):
