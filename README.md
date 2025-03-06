@@ -13,13 +13,6 @@ A pre-prepared Conda environment is available in the `environment.yml` file. To 
 ```sh
 conda env create -f environment.yml
 conda activate pre-cat
-python -m pip list
-```
-
-In addition to the included environment, [`streamlit-drawable-canvas`](https://github.com/andfanilo/streamlit-drawable-canvas) must be installed separately:
-
-```sh
-pip install streamlit-drawable-canvas 
 ```
 
 Finally, [`BART`](https://mrirecon.github.io/bart/) is also required. Please follow the instructions in the **README** file for installation.
