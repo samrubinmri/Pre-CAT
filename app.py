@@ -162,31 +162,32 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     )
                     pixelwise = st.toggle(
                         'Pixelwise mapping', help="Accuracy is highly dependent on field homogeneity.")
-                    reference = st.toggle(
-                        'Additional reference image', help="Use this option to load an additional reference image for ROI(s)/masking. By default, the unsaturated (S0/M0) image is used.")
-                    if reference:
-                        all_fields_filled = False
-                        reference_path = st.text_input('Input reference experiment number', help='Reference image assumed to be rectilinear. Please only use single slice images.')
-                        if reference_path:
-                            reference_full_path = os.path.join(folder_path, reference_path)
-                            all_fields_filled = True
-                            reference_validation = False
-                            if os.path.isdir(reference_full_path):  
-                                reference_validation = True
-                                missing_items = validate_rectilinear(reference_full_path)
-                                if missing_items:
-                                    st.error(f"Reference folder is missing the following required items: {', '.join(missing_items)}")
-                                    reference_validation = False
-                                else:
-                                    reference_image = load_study.load_bruker_img(reference_path, folder_path)
-                                    if reference_image.shape[2] != 1:
-                                        st.error("Reference image contains multislice data! Currently, only single slice data is allowed.")
+                    if anatomy == "Other":
+                        reference = st.toggle(
+                            'Additional reference image', help="Use this option to load an additional reference image for ROI(s)/masking. By default, the unsaturated (S0/M0) image is used.")
+                        if reference:
+                            all_fields_filled = False
+                            reference_path = st.text_input('Input reference experiment number', help='Reference image assumed to be rectilinear. Please only use single slice images.')
+                            if reference_path:
+                                reference_full_path = os.path.join(folder_path, reference_path)
+                                all_fields_filled = True
+                                reference_validation = False
+                                if os.path.isdir(reference_full_path):  
+                                    reference_validation = True
+                                    missing_items = validate_rectilinear(reference_full_path)
+                                    if missing_items:
+                                        st.error(f"Reference folder is missing the following required items: {', '.join(missing_items)}")
                                         reference_validation = False
                                     else:
-                                       st.session_state.reference = reference_image 
-                            else:
-                                st.error(f"Reference folder does not exist: {reference_full_path}")
-                                reference_validation = False
+                                        reference_image = load_study.load_bruker_img(reference_path, folder_path)
+                                        if reference_image.shape[2] != 1:
+                                            st.error("Reference image contains multislice data! Currently, only single slice data is allowed.")
+                                            reference_validation = False
+                                        else:
+                                           st.session_state.reference = reference_image 
+                                else:
+                                    st.error(f"Reference folder does not exist: {reference_full_path}")
+                                    reference_validation = False
                                 
                     choose_contrasts = st.toggle(
                         'Choose contrasts', help="Default contrasts are: amide, creatine, NOE. Water and MT are always fit.")
@@ -273,7 +274,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
             
             # Check if all fields are filled before enabling submit
             if all_fields_filled and (cest_validation and wassr_validation and damb1_validation):
-                if reference and reference_validation == False:
+                if 'reference' in locals() and reference and reference_validation == False:
                     st.error("Please validate the additional reference image before submitting.")
                 else:
                     if st.button("Submit"):

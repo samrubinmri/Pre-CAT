@@ -245,7 +245,7 @@ def draw_rois(session_state, data, cest):
                 session_state.rois_done = True
                 st.rerun()
     
-def cardiac_roi(session_state, data):
+def cardiac_roi(session_state, data, cest):
     # Load images
     # Get the directory of the current script
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -259,7 +259,14 @@ def cardiac_roi(session_state, data):
     trash = get_base64_image(trash_path)
 
     # Get image data for ROI
-    m0 = data['m0']  # Replace with your actual image data (numpy array)
+    if isinstance(data, dict) and 'm0' in data:
+        m0 = data['m0']  # Replace with your actual image data (numpy array)
+    else:
+        m0 = data.squeeze()
+        zoom_img = cest['m0']
+        if np.shape(m0) != np.shape(zoom_img):
+            zoom_factors = np.array(zoom_img.shape) / np.array(m0.shape)
+            m0 = zoom(m0, zoom_factors, order=2)  # Try bilinear
 
     # Get image dimensions (height, width)
     img_height, img_width = np.shape(m0)
