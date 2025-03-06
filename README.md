@@ -41,4 +41,4 @@ To test **Pre-CAT** with example data, you can download the provided dataset [he
 
 Please use the [Issues](https://github.com/jweigandwhittier/Pre-CAT/issues) section to report bugs or ask questions.
 
-You are also welcome to contact me directly with any issues or questions at: jweigandwhittier@berkeley.edu. Please add [**Pre-CAT**] to the subject line of your email.
+You are also welcome to contact me directly with any issues or questions at: *jweigandwhittier[at]berkeley[dot]edu*. Please add [**Pre-CAT**] to the subject line of your email.
