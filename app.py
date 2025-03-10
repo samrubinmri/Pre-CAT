@@ -192,8 +192,8 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                         choose_contrasts = st.toggle(
                             'Choose contrasts', help="Default contrasts are: amide, creatine, NOE. Water and MT are always fit.")
                         if choose_contrasts:
-                            contrasts = ["NOE (-2.5 ppm)", "Amide", "Creatine", "Amine", "Hydroxyl"]
-                            default_contrasts = ["NOE (-2.5 ppm)", "Amide", "Creatine"]
+                            contrasts = ["NOE (-2.75 ppm)", "Amide", "Creatine", "Amine", "Hydroxyl"]
+                            default_contrasts = ["NOE (-2.75 ppm)", "Amide", "Creatine"]
                             contrast_selection = st.pills ("Contrasts", contrasts, default=default_contrasts, selection_mode="multi")
                             st.session_state.custom_contrasts = contrast_selection
                         else:

@@ -43,7 +43,7 @@ def pixelwise_mapping(image, session_state):
         mt_list = [datum["Contrasts"]["MT"] for datum in data]
         amide_list = [datum["Contrasts"]["Amide"] for datum in data]
         creatine_list = [datum["Contrasts"]["Creatine"] for datum in data]
-        noe_list = [datum["Contrasts"]["NOE"] for datum in data]
+        noe_list = [datum["Contrasts"]["NOE (-2.75 ppm)"] for datum in data]
 
         mask_indices = np.argwhere(mask)
         for idx, (i, j) in enumerate(mask_indices):
@@ -76,7 +76,7 @@ def pixelwise_mapping(image, session_state):
     # Displaying images in a 2x2 grid using Streamlit
     st.subheader("Pixelwise Maps")
     contrasts = [mt_image, amide_image, creatine_image, noe_image]
-    titles = ["MT", "Amide", "Creatine", "NOE"]
+    titles = ["MT", "Amide", "Creatine", "NOE (-2.75 ppm)"]
 
     # Use containers to ensure alignment
     for i in range(0, len(contrasts), 2):  # Iterate in steps of 2
@@ -192,7 +192,7 @@ def plot_zspec(session_state):
                 Spectrum = data_dict['Zspec']
                 Water_Fit = data_dict['Water_Fit']
                 Mt_Fit = data_dict['MT_Fit']
-                Noe_Fit = data_dict['NOE_Fit']
+                Noe_Fit = data_dict['NOE (-2.75 ppm)_Fit']
                 Creatine_Fit = data_dict['Creatine_Fit']
                 Amide_Fit = data_dict['Amide_Fit']
 
@@ -201,7 +201,7 @@ def plot_zspec(session_state):
                 ax.plot(Offsets, Spectrum, '.', markersize=15, fillstyle='none', color='black', label="Raw")
                 ax.plot(OffsetsInterp, 1 - Water_Fit, linewidth=4, color='#0072BD', label="Water")
                 ax.plot(OffsetsInterp, 1 - Mt_Fit, linewidth=4, color='#EDB120', label="MT")
-                ax.plot(OffsetsInterp, 1 - Noe_Fit, linewidth=4, color='#77AC30', label="NOE")
+                ax.plot(OffsetsInterp, 1 - Noe_Fit, linewidth=4, color='#77AC30', label="NOE (-2.75 ppm)")
                 ax.plot(OffsetsInterp, 1 - Amide_Fit, linewidth=4, color='#7E2F8E', label="Amide")
                 ax.plot(OffsetsInterp, 1 - Creatine_Fit, linewidth=4, color='#A2142F', label="Creatine")
                 ax.plot(OffsetsInterp, 1 - (Water_Fit + Mt_Fit + Noe_Fit + Creatine_Fit + Amide_Fit),
@@ -228,7 +228,7 @@ def plot_zspec(session_state):
                 data_dict = fit['Data_Dict']
                 OffsetsInterp = data_dict['Offsets_Interp']
                 Offsets = data_dict['Offsets_Corrected']
-                Noe_Fit = data_dict['NOE_Fit']
+                Noe_Fit = data_dict['NOE (-2.75 ppm)_Fit']
                 Amide_Fit = data_dict['Amide_Fit']
                 Creatine_Fit = data_dict['Creatine_Fit']
                 Lorentzian_Difference = data_dict['Lorentzian_Difference']
@@ -236,7 +236,7 @@ def plot_zspec(session_state):
                 # Plot Lorentzian Difference
                 fig, ax = plt.subplots(figsize=(12, 10))
                 ax.fill_between(Offsets, Lorentzian_Difference * 100, 0, color='gray', alpha=0.5)
-                ax.plot(OffsetsInterp, Noe_Fit * 100, linewidth=4, color='#77AC30', label="NOE")
+                ax.plot(OffsetsInterp, Noe_Fit * 100, linewidth=4, color='#77AC30', label="NOE (-2.75 ppm)")
                 ax.plot(OffsetsInterp, Amide_Fit * 100, linewidth=4, color='#7E2F8E', label="Amide")
                 ax.plot(OffsetsInterp, Creatine_Fit * 100, linewidth=4, color='#A2142F', label="Creatine")
 
