@@ -92,24 +92,12 @@ def Step_1_Fit(x, *fit_parameters):
     Fit = 1 - Water_Fit - Mt_Fit
     return Fit
 
-def Step_2_Fit(x, *fit_parameters):
-    Noe_Fit = Lorentzian(x, fit_parameters[0], fit_parameters[1], fit_parameters[2])
-    Creatine_Fit = Lorentzian(x, fit_parameters[3], fit_parameters[4], fit_parameters[5])
-    Amide_Fit = Lorentzian(x, fit_parameters[6], fit_parameters[7], fit_parameters[8])
-    Fit = Noe_Fit + Creatine_Fit + Amide_Fit
-    return Fit
-
-def Step_2_Fit_Apt(x, *fit_parameters):
-    Noe_Fit = Lorentzian(x, fit_parameters[0], fit_parameters[1], fit_parameters[2])
-    Amide_Fit = Lorentzian(x, fit_parameters[3], fit_parameters[4], fit_parameters[5])
-    Fit = Noe_Fit + Amide_Fit
-    return Fit
-
-def Cr_Phantom_Fit(x, *fit_parameters):
-    Water_Fit = Lorentzian(x, fit_parameters[0], fit_parameters[1], fit_parameters[2])
-    Creatine_Fit = Lorentzian(x, fit_parameters[3], fit_parameters[4], fit_parameters[5])
-    Fit = 1 - Water_Fit - Creatine_Fit
-    return Fit
+# def Step_2_Fit(x, *fit_parameters):
+#     Noe_Fit = Lorentzian(x, fit_parameters[0], fit_parameters[1], fit_parameters[2])
+#     Creatine_Fit = Lorentzian(x, fit_parameters[3], fit_parameters[4], fit_parameters[5])
+#     Amide_Fit = Lorentzian(x, fit_parameters[6], fit_parameters[7], fit_parameters[8])
+#     Fit = Noe_Fit + Creatine_Fit + Amide_Fit
+#     return Fit
 
 def Water_Fit_Correction(x, *fit_parameters):
     Water_Fit = Lorentzian(x, fit_parameters[0], fit_parameters[1], fit_parameters[2])
@@ -189,7 +177,29 @@ def two_step(spectra, offsets):
     return fits
 
 
-def _process_spectrum(offsets, spectrum, n_interp):
+def _process_spectrum(offsets, spectrum, n_interp, custom_contrasts = None):
+    if custom_contrasts is None:
+        custom_contrasts = ['Amide', 'Creatine', 'NOE (-2.75 ppm)']
+    # Define fitting parameters dynamically
+    contrast_params = {
+        'NOE (-2.75 ppm)': (p0_noe, lb_noe, ub_noe),
+        'Creatine': (p0_creatine, lb_creatine, ub_creatine),
+        'Amide': (p0_amide, lb_amide, ub_amide),
+        'Amine': (p0_amine, lb_amine, ub_amine),
+        'Hydroxyl': (p0_hydroxyl, lb_hydroxyl, ub_hydroxyl)
+    }
+    p0_2, lb_2, ub_2 = [], [], []
+    for contrast in custom_contrasts:
+            p0_2 += contrast_params[contrast][0]
+            lb_2 += contrast_params[contrast][1]
+            ub_2 += contrast_params[contrast][2]
+    def Step_2_Fit(x, *params):
+        fit_sum = np.zeros_like(x)
+        index = 0
+        for contrast in custom_contrasts:
+            fit_sum += Lorentzian(x, params[index], params[index+1], params[index+2])
+            index += 3
+        return fit_sum
     try:
         if offsets[0] > 0:
             offsets = np.flip(offsets)
@@ -220,9 +230,11 @@ def _process_spectrum(offsets, spectrum, n_interp):
         step_1_rmse = np.sqrt(mean_squared_error(spectrum, step_1_fit_values))
         # Step 2 fitting
         fit_2, _ = curve_fit(Step_2_Fit, offsets_corrected, lorentzian_difference, p0=p0_2, bounds=(lb_2, ub_2), **options)
-        noe_fit = Lorentzian(offsets_interp, fit_2[0], fit_2[1], fit_2[2])
-        creatine_fit = Lorentzian(offsets_interp, fit_2[3], fit_2[4], fit_2[5])
-        amide_fit = Lorentzian(offsets_interp, fit_2[6], fit_2[7], fit_2[8])
+        fit_curves = {}
+        index = 0
+        for contrast in custom_contrasts:
+            fit_curves[contrast] = Lorentzian(offsets_interp, fit_2[index], fit_2[index+1], fit_2[index+2])
+            index += 3
         # RMSE for Step 2
         step_2_fit_values = Step_2_Fit(offsets_corrected, *fit_2)
         step_2_rmse = np.sqrt(mean_squared_error(lorentzian_difference, step_2_fit_values))
@@ -235,28 +247,28 @@ def _process_spectrum(offsets, spectrum, n_interp):
         offsets_interp = np.flip(offsets_interp)
         water_fit = np.flip(water_fit)
         mt_fit = np.flip(mt_fit)
-        noe_fit = np.flip(noe_fit)
-        creatine_fit = np.flip(creatine_fit)
-        amide_fit = np.flip(amide_fit)
+        fit_curves_named = {}
+        for contrast in fit_curves:
+            fit_curves_named[f"{contrast}_Fit"] = np.flip(fit_curves[contrast])
+
+        contrasts = {'Water': 100 * fit_1[0], 'MT': 100 * fit_1[3]}
+        for i, contrast in enumerate(custom_contrasts):
+            contrasts[contrast] = 100 * fit_2[i * 3]
         # Prepare result
-        contrasts = {'Water': 100 * fit_1[0], 'MT': 100 * fit_1[3],
-                     'NOE': 100 * fit_2[0], 'Creatine': 100 * fit_2[3], 'Amide': 100 * fit_2[6]}
         data_dict = {'Zspec': spectrum, 'Offsets': offsets, 'Offsets_Corrected': offsets_corrected,
-                     'Offsets_Interp': offsets_interp, 'Water_Fit': water_fit, 'MT_Fit': mt_fit,
-                     'NOE_Fit': noe_fit, 'Creatine_Fit': creatine_fit, 'Amide_Fit': amide_fit,
-                     'Lorentzian_Difference': lorentzian_difference}
+                           'Offsets_Interp': offsets_interp, 'Water_Fit': water_fit, 'MT_Fit': mt_fit,
+                           **fit_curves_named,'Lorentzian_Difference': lorentzian_difference, **fit_curves}
         fit_parameters = [fit_1, fit_2]
     except RuntimeError:
-        # Fill outputs with zeros if curve fitting fails
-        fit_parameters = [np.zeros(6), np.zeros(9)]
-        contrasts= {'Water': 0, 'MT': 0, 'NOE': 0, 'Creatine': 0, 'Amide': 0}
+        fit_parameters = [np.zeros(len(p0_1)), np.zeros(len(p0_2))]
+        contrasts = {key: 0 for key in ['Water', 'MT'] + custom_contrasts}
         data_dict = {'Zspec': spectrum, 'Offsets': offsets, 'Offsets_Corrected': offsets_corrected,
-                    'Offsets_Interp': offsets_interp, 'Water_Fit': np.zeros(n_interp), 'MT_Fit': np.zeros(n_interp),
-                    'NOE_Fit': np.zeros(n_interp), 'Creatine_Fit': np.zeros(n_interp), 
-                    'Amide_Fit': np.zeros(n_interp), 'Lorentzian_Difference': np.zeros(n_interp)}
-        spectrum_region = 0
-        total_fit_region = 0
+                     'Offsets_Interp': offsets_interp, 'Water_Fit': np.zeros(n_interp), 'MT_Fit': np.zeros(n_interp),
+                     'Lorentzian_Difference': np.zeros(n_interp), **{key: np.zeros(n_interp) for key in custom_contrasts}}
+        spectrum_region = np.array([])
+        total_fit_region = np.array([])
         rmse = np.inf
+    
     return {'Fit_Params': fit_parameters, 'Data_Dict': data_dict,
             'Contrasts': contrasts, 'Residuals': spectrum_region - total_fit_region, 'RMSE': rmse}
 
