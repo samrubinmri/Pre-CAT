@@ -416,10 +416,10 @@ if st.session_state.display_data == True:
     with st.expander('Display and save results', expanded = st.session_state.display_data):
         if "CEST" in submitted_data["selection"]:
             image = st.session_state.recon['cest']['m0']
-            if st.session_state.submitted_data['organ'] == 'Cardiac':
-                plotting.show_segmentation(image, st.session_state)
-            elif st.session_state.submitted_data['organ'] == 'Other':
-                plotting.show_rois(image, st.session_state)
+            # if st.session_state.submitted_data['organ'] == 'Cardiac':
+                # plotting.show_segmentation(image, st.session_state)
+            # elif st.session_state.submitted_data['organ'] == 'Other':
+                # plotting.show_rois(image, st.session_state)
             if st.session_state.submitted_data['pixelwise'] == True:
                 plotting.pixelwise_mapping(image, st.session_state)
             plotting.plot_zspec(st.session_state)
