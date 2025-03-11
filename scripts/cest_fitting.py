@@ -160,7 +160,7 @@ def calc_spectra_pixelwise(imgs, session_state):
     # Save spectra to session state
     session_state.processed_data["pixelwise"]["spectra"] = spectra
 
-def two_step(spectra, offsets):
+def two_step(spectra, offsets, contrasts):
     n_interp = 4000
     fits = {}
     for roi, spectrum_data in spectra.items():
@@ -169,11 +169,11 @@ def two_step(spectra, offsets):
             # Handle pixelwise spectra
             roi_fits = []
             for spectrum in spectrum_data:
-                roi_fits.append(_process_spectrum(offsets, spectrum, n_interp))
+                roi_fits.append(_process_spectrum(offsets, spectrum, n_interp, contrasts))
             fits[roi] = roi_fits
         else:
             # Handle ROI-averaged spectrum
-            fits[roi] = _process_spectrum(offsets, spectrum_data, n_interp)
+            fits[roi] = _process_spectrum(offsets, spectrum_data, n_interp, contrasts)
     return fits
 
 
@@ -257,7 +257,7 @@ def _process_spectrum(offsets, spectrum, n_interp, custom_contrasts = None):
         # Prepare result
         data_dict = {'Zspec': spectrum, 'Offsets': offsets, 'Offsets_Corrected': offsets_corrected,
                            'Offsets_Interp': offsets_interp, 'Water_Fit': water_fit, 'MT_Fit': mt_fit,
-                           **fit_curves_named,'Lorentzian_Difference': lorentzian_difference, **fit_curves}
+                           **fit_curves_named,'Lorentzian_Difference': lorentzian_difference}
         fit_parameters = [fit_1, fit_2]
     except RuntimeError:
         fit_parameters = [np.zeros(len(p0_1)), np.zeros(len(p0_2))]
@@ -274,6 +274,7 @@ def _process_spectrum(offsets, spectrum, n_interp, custom_contrasts = None):
 
 def per_pixel(session_state):
     fits = {}
+    contrasts = session_state.custom_contrasts
     spectra = session_state.processed_data['pixelwise']['spectra']
     offsets = session_state.recon['cest']['offsets']
 
@@ -286,7 +287,7 @@ def per_pixel(session_state):
     for label, pixels in spectra.items():
         fits[label] = []
         for spectrum in pixels:
-            result = two_step({label: [spectrum]}, offsets)
+            result = two_step({label: [spectrum]}, offsets, contrasts)
             fits[label].append(result[label][0])  # Assuming result[label] is a list with a single dictionary
             progress_counter += 1
             # Update the progress bar
