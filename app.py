@@ -85,6 +85,7 @@ When using **Pre-CAT**, please remember the following:
 - **Pre-CAT** is not licensed for clinical use and is intended for research purposes only.
 - Due to B0 inhomogeneities, cardiac CEST data is only useful in anterior segments.
 - Each raw data file includes calculated RMSE in the CEST fitting region. Please refer to this if output data seem noisy.
+- By default, **Pre-CAT** fits a single rNOE peak with a starting offset of -2.75 ppm (upper bound -4.5 ppm; lower bound -1.5 ppm).
     """)
     st.write("""## Citation
 This webapp is associated with the following paper, please cite this work when using **Pre-CAT**. \n
@@ -400,7 +401,7 @@ if st.session_state.is_submitted:
                         draw_rois.aha_segmentation(image, st.session_state)
                     imgs = st.session_state.recon['cest']['imgs']
                     cest_fitting.calc_spectra(imgs, st.session_state)
-                    st.session_state.processed_data["fits"] = cest_fitting.two_step(st.session_state.processed_data['spectra'], st.session_state.recon['cest']['offsets'])
+                    st.session_state.processed_data["fits"] = cest_fitting.two_step(st.session_state.processed_data['spectra'], st.session_state.recon['cest']['offsets'], st.session_state.custom_contrasts)
                     if st.session_state.submitted_data['pixelwise'] == True and st.session_state.processed_data['pixelwise']['fits'] is None:
                         cest_fitting.calc_spectra_pixelwise(imgs, st.session_state)
                         st.session_state.processed_data['pixelwise']['fits'] = cest_fitting.per_pixel(st.session_state)

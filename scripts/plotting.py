@@ -6,6 +6,7 @@ Created on Wed Jan 22 12:29:12 2025
 @author: jonah
 """
 import os
+import itertools
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
@@ -190,23 +191,36 @@ def plot_zspec(session_state):
                 OffsetsInterp = data_dict['Offsets_Interp']
                 Offsets = data_dict['Offsets_Corrected']
                 Spectrum = data_dict['Zspec']
-                Water_Fit = data_dict['Water_Fit']
-                Mt_Fit = data_dict['MT_Fit']
-                Noe_Fit = data_dict['NOE (-2.75 ppm)_Fit']
-                Creatine_Fit = data_dict['Creatine_Fit']
-                Amide_Fit = data_dict['Amide_Fit']
+                Fits = {key: value for key, value in data_dict.items() if 'Fit' in key}
+                # Water_Fit = data_dict['Water_Fit']
+                # Mt_Fit = data_dict['MT_Fit']
+                # Noe_Fit = data_dict['NOE (-2.75 ppm)_Fit']
+                # Creatine_Fit = data_dict['Creatine_Fit']
+                # Amide_Fit = data_dict['Amide_Fit']
 
                 # Plot Z-Spectra
                 fig, ax = plt.subplots(figsize=(12, 10))
                 ax.plot(Offsets, Spectrum, '.', markersize=15, fillstyle='none', color='black', label="Raw")
-                ax.plot(OffsetsInterp, 1 - Water_Fit, linewidth=4, color='#0072BD', label="Water")
-                ax.plot(OffsetsInterp, 1 - Mt_Fit, linewidth=4, color='#EDB120', label="MT")
-                ax.plot(OffsetsInterp, 1 - Noe_Fit, linewidth=4, color='#77AC30', label="NOE (-2.75 ppm)")
-                ax.plot(OffsetsInterp, 1 - Amide_Fit, linewidth=4, color='#7E2F8E', label="Amide")
-                ax.plot(OffsetsInterp, 1 - Creatine_Fit, linewidth=4, color='#A2142F', label="Creatine")
-                ax.plot(OffsetsInterp, 1 - (Water_Fit + Mt_Fit + Noe_Fit + Creatine_Fit + Amide_Fit),
+                total_fit = np.zeros_like(next(iter(Fits.values())))
+                contrast_colors = {
+                    'Water_Fit': '#0072BD',
+                    'MT_Fit': '#EDB120',
+                    'NOE (-2.75 ppm)_Fit': '#77AC30',
+                    'Amide_Fit': '#7E2F8E',
+                    'Amine_Fit': '#FF6700',  
+                    'Creatine_Fit': '#A2142F',  
+                    'Hydroxyl_Fit': '#4DBEEE',  
+                }
+                # Get a color cycle for any remaining fits
+                color_cycle = itertools.cycle(plt.get_cmap('viridis').colors)  # Change colormap if needed
+                for contrast, fit in Fits.items():
+                    label = contrast.replace('_Fit', '')  # Extract the label
+                    color = contrast_colors.get(contrast, next(color_cycle))  # Use predefined color or cycle
+                
+                    ax.plot(OffsetsInterp, 1 - fit, linewidth=4, color=color, label=label)
+                    total_fit += fit
+                ax.plot(OffsetsInterp, 1 - total_fit,
                         linewidth=4, color='#D95319', label="Fit")
-
                 ax.legend(fontsize=16)
                 ax.invert_xaxis()
                 ax.tick_params(axis='both', which='major', labelsize=16)
@@ -228,18 +242,15 @@ def plot_zspec(session_state):
                 data_dict = fit['Data_Dict']
                 OffsetsInterp = data_dict['Offsets_Interp']
                 Offsets = data_dict['Offsets_Corrected']
-                Noe_Fit = data_dict['NOE (-2.75 ppm)_Fit']
-                Amide_Fit = data_dict['Amide_Fit']
-                Creatine_Fit = data_dict['Creatine_Fit']
                 Lorentzian_Difference = data_dict['Lorentzian_Difference']
-
                 # Plot Lorentzian Difference
                 fig, ax = plt.subplots(figsize=(12, 10))
                 ax.fill_between(Offsets, Lorentzian_Difference * 100, 0, color='gray', alpha=0.5)
-                ax.plot(OffsetsInterp, Noe_Fit * 100, linewidth=4, color='#77AC30', label="NOE (-2.75 ppm)")
-                ax.plot(OffsetsInterp, Amide_Fit * 100, linewidth=4, color='#7E2F8E', label="Amide")
-                ax.plot(OffsetsInterp, Creatine_Fit * 100, linewidth=4, color='#A2142F', label="Creatine")
-
+                # Automatically plot available fits with assigned colors
+                for contrast in data_dict.keys():
+                    if 'Fit' in contrast and contrast not in ['Water_Fit', 'MT_Fit']:
+                        color = contrast_colors.get(contrast, '#000000')  # Default to black if missing
+                        ax.plot(OffsetsInterp, data_dict[contrast] * 100, linewidth=4, color=color, label=contrast.replace("_Fit", ""))
                 ax.legend(fontsize=16)
                 ax.invert_xaxis()
                 ax.tick_params(axis='both', which='major', labelsize=16)
@@ -248,4 +259,4 @@ def plot_zspec(session_state):
                 fig.suptitle(roi, fontsize=28, weight='bold', fontname='Arial')
                 plt.grid(False)
                 st.pyplot(fig)
-                plt.savefig(plot_path + '/' + roi + '_Lorentzian_Dif.png', dpi = 300, bbox_inches="tight")
+                plt.savefig(plot_path + '/' + roi + '_Lorentzian_Dif.png', dpi=300, bbox_inches="tight")
