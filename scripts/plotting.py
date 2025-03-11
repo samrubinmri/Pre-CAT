@@ -33,37 +33,29 @@ def pixelwise_mapping(image, session_state):
         os.makedirs(image_path)
     
     # Initialize empty contrast images for all ROIs combined
-    mt_image = np.full_like(image, np.nan, dtype=float)
-    amide_image = np.full_like(image, np.nan, dtype=float)
-    creatine_image = np.full_like(image, np.nan, dtype=float)
-    noe_image = np.full_like(image, np.nan, dtype=float)
+    contrasts = session_state.custom_contrasts
+    contrasts = ['MT'] + contrasts
+    contrast_images = {contrast: np.full_like(image, np.nan, dtype=float)
+                       for contrast in contrasts}
 
-    # Iterate through each ROI and populate the contrast images
     for label, mask in masks.items():
         data = fits[label]
-        mt_list = [datum["Contrasts"]["MT"] for datum in data]
-        amide_list = [datum["Contrasts"]["Amide"] for datum in data]
-        creatine_list = [datum["Contrasts"]["Creatine"] for datum in data]
-        noe_list = [datum["Contrasts"]["NOE (-2.75 ppm)"] for datum in data]
-
-        mask_indices = np.argwhere(mask)
-        for idx, (i, j) in enumerate(mask_indices):
-            mt_image[i, j] = mt_list[idx]
-            amide_image[i, j] = amide_list[idx]
-            creatine_image[i, j] = creatine_list[idx]
-            noe_image[i, j] = noe_list[idx]
+        for contrast in contrasts:
+            contrast_list = [datum["Contrasts"].get(contrast, np.nan) for datum in data]
+            mask_indices = np.argwhere(mask)
+            for idx, (i, j) in enumerate(mask_indices):
+                contrast_images[contrast][i, j] = contrast_list[idx]
 
     # Apply median filtering to smooth the contrast images
-    mt_image = medfilt2d(mt_image, kernel_size=3)
-    amide_image = medfilt2d(amide_image, kernel_size=3)
-    creatine_image = medfilt2d(creatine_image, kernel_size=3)
-    noe_image = medfilt2d(noe_image, kernel_size=3)
+    for contrast in contrast_images:
+        contrast_images[contrast] = medfilt2d(contrast_images[contrast], kernel_size=3)
 
     # Plotting helper function
     def plot_contrast(base_image, contrast_image, title):
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.imshow(base_image[y_min:y_max,x_min:x_max], cmap="gray")
-        im = ax.imshow(contrast_image[y_min:y_max,x_min:x_max], cmap="viridis", alpha=0.7, norm=Normalize(vmin=0, vmax=np.nanmax(contrast_image)))
+        im = ax.imshow(contrast_image[y_min:y_max,x_min:x_max], cmap="viridis", alpha=0.7, 
+                       norm=Normalize(vmin=0, vmax=np.nanmax(contrast_image)))
         ax.set_title(title, fontsize=28, weight='bold', fontname='Arial')
         ax.axis("off")
         
@@ -76,8 +68,8 @@ def pixelwise_mapping(image, session_state):
 
     # Displaying images in a 2x2 grid using Streamlit
     st.subheader("Pixelwise Maps")
-    contrasts = [mt_image, amide_image, creatine_image, noe_image]
-    titles = ["MT", "Amide", "Creatine", "NOE (-2.75 ppm)"]
+    contrasts = list(contrast_images.values())
+    titles = list(contrast_images.keys())
 
     # Use containers to ensure alignment
     for i in range(0, len(contrasts), 2):  # Iterate in steps of 2
@@ -91,7 +83,7 @@ def pixelwise_mapping(image, session_state):
                 fig = plot_contrast(image, contrasts[i + 1], titles[i + 1])
                 plt.savefig(image_path + '/' + titles[i + 1] + '_Contrast_Map.png', dpi=300, bbox_inches="tight")
                 st.pyplot(fig)
-    
+
 def show_segmentation(image, session_state):
     # Get vars from session state
     mask = session_state.user_geometry["masks"]["lv"]
