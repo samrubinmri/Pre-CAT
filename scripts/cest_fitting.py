@@ -208,6 +208,11 @@ def _process_spectrum(offsets, spectrum, n_interp, custom_contrasts = None):
         fit_1, _ = curve_fit(Step_1_Fit, offsets, spectrum, p0=p0_corr, bounds=(lb_corr, ub_corr), **options)
         correction = fit_1[2]
         offsets_corrected = offsets - correction
+        # Exception for OH
+        if 'Hydroxyl' in custom_contrasts:
+            cutoffs[2] = 0.4
+        else:
+            cutoffs[2] = 1.4
         # Crop offsets and spectrum
         condition = (offsets_corrected <= cutoffs[0]) | (offsets_corrected >= cutoffs[3]) | \
                     ((offsets_corrected >= cutoffs[1]) & (offsets_corrected <= cutoffs[2]))
