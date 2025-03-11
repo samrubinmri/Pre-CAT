@@ -60,7 +60,7 @@ ub_noe = [0.25, 5, -1.5]
 ub_creatine = [0.5, 5, 2.6]
 ub_amide = [0.3, 5, 4.0]
 ub_amine = [0.3, 5, 2.8]
-ub_hydroxyl = [0.3, 5, 0.8]
+ub_hydroxyl = [0.3, 5, 1.4]
 
 ##Combine for curve fitting##
 #Step 1
@@ -295,6 +295,8 @@ def per_pixel(session_state):
     
     # Mark the progress bar as complete
     progress_bar.progress(1.0)
+    # Remove progress bar after full
+    progress_bar.empty()
     return fits
 
 def wassr(offsets, spectra):
