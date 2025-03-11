@@ -79,10 +79,12 @@ def pixelwise_mapping(image, session_state):
                 fig = plot_contrast(image, contrasts[i], titles[i])
                 plt.savefig(image_path + '/' + titles[i] + '_Contrast_Map.png', dpi=300, bbox_inches="tight")
                 st.pyplot(fig)
-            with cols[1]:
-                fig = plot_contrast(image, contrasts[i + 1], titles[i + 1])
-                plt.savefig(image_path + '/' + titles[i + 1] + '_Contrast_Map.png', dpi=300, bbox_inches="tight")
-                st.pyplot(fig)
+            # Check if i+1 is a valid index
+            if i + 1 < len(contrasts):
+                with cols[1]:
+                    fig = plot_contrast(image, contrasts[i + 1], titles[i + 1])
+                    plt.savefig(image_path + '/' + titles[i + 1] + '_Contrast_Map.png', dpi=300, bbox_inches="tight")
+                    st.pyplot(fig)
 
 def show_segmentation(image, session_state):
     # Get vars from session state
