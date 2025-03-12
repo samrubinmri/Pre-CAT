@@ -239,7 +239,7 @@ def plot_zspec(session_state):
                 Lorentzian_Difference = data_dict['Lorentzian_Difference']
                 # Plot Lorentzian Difference
                 fig, ax = plt.subplots(figsize=(12, 10))
-                ax.fill_between(Offsets, Lorentzian_Difference * 100, 0, color='gray', alpha=0.5)
+                ax.fill_between(Offsets, Lorentzian_Difference * 100, 0, color='gray', alpha=0.5, label="Raw")
                 total_fit = np.zeros_like(next(iter(Fits.values())))
                 # Automatically plot available fits with assigned colors
                 for contrast in data_dict.keys():
