@@ -146,11 +146,11 @@ def draw_rois(session_state, data, cest):
     img_height, img_width = np.shape(m0)
 
     # Desired canvas size
-    canvas_width = 800  # Set desired width for the canvas
+    canvas_width = img_width*3 # Set desired width for the canvas
     canvas_height = int(canvas_width * img_height / img_width)  # Maintain aspect ratio
 
     # Convert image to PIL object
-    fig = plt.figure(figsize=(canvas_width / 100, canvas_height / 100))  # Inches for fig size
+    fig = plt.figure(figsize=(canvas_width//100, canvas_height//100))  # Inches for fig size
     ax = fig.add_axes([0, 0, 1, 1])  # Position the image to fill the entire figure
     
     ax.imshow(m0, cmap='gray')
@@ -201,7 +201,7 @@ def draw_rois(session_state, data, cest):
             </ul>
         </div>
         """.format(undo=undo, trash=trash), unsafe_allow_html=True)
-
+    
     # Canvas configuration to ensure the image fills the entire space
     canvas_result = st_canvas(
         fill_color="rgba(0, 0, 0, 0)", 
@@ -272,11 +272,11 @@ def cardiac_roi(session_state, data, cest):
     img_height, img_width = np.shape(m0)
 
     # Desired canvas size
-    canvas_width = 800  # Set desired width for the canvas
+    canvas_width = img_width*3  # Set desired width for the canvas
     canvas_height = int(canvas_width * img_height / img_width)  # Maintain aspect ratio
 
     # Convert image to PIL object
-    fig = plt.figure(figsize=(canvas_width / 100, canvas_height / 100))  # Inches for fig size
+    fig = plt.figure(figsize=(canvas_width//100, canvas_height//100))  # Inches for fig size
     ax = fig.add_axes([0, 0, 1, 1])  # Position the image to fill the entire figure
     
     ax.imshow(m0, cmap='gray')
