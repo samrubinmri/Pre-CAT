@@ -1,4 +1,4 @@
-# Pre-CAT <img src="https://github.com/jweigandwhittier/Pre-CAT/blob/main/custom/icons/ksp.png" width="50">
+# <img src="https://github.com/jweigandwhittier/Pre-CAT/blob/main/custom/icons/ksp.png" width="50"> Pre-CAT
 
 ## Welcome to Pre-CAT 
 
