@@ -34,6 +34,8 @@ def pixelwise_mapping(image, session_state):
     
     # Initialize empty contrast images for all ROIs combined
     contrasts = session_state.custom_contrasts
+    if contrasts is None:
+        contrasts = ['Amide', 'Creatine', 'NOE (-2.75 ppm)']
     contrasts = ['MT'] + contrasts
     contrast_images = {contrast: np.full_like(image, np.nan, dtype=float)
                        for contrast in contrasts}
