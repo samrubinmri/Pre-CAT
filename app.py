@@ -28,6 +28,8 @@ if "custom_contrasts" not in st.session_state:
     st.session_state.custom_contrasts = None
 if "reference" not in st.session_state:
     st.session_state.reference = None
+if "shared_rois" not in st.session_state:
+    st.session_state.shared_rois = None
     
 def clear_session_state():
     """Clear all session state."""
@@ -395,6 +397,7 @@ if st.session_state.is_submitted:
                     image = st.session_state.recon['cest']['m0']
                     rois = st.session_state.user_geometry["rois"]
                     st.session_state.user_geometry['masks'] = draw_rois.convert_rois_to_masks(image, rois)
+                    st.session_state.shared_rois = st.session_state.user_geometry["rois"]
                     masks = st.session_state.user_geometry['masks']
                     if st.session_state.submitted_data['organ'] == 'Cardiac':
                         st.session_state.user_geometry['masks']['lv'] = draw_rois.calc_lv_mask(masks)
@@ -406,6 +409,11 @@ if st.session_state.is_submitted:
                         cest_fitting.calc_spectra_pixelwise(imgs, st.session_state)
                         st.session_state.processed_data['pixelwise']['fits'] = cest_fitting.per_pixel(st.session_state)
                     st.success("Fitting complete!")
+
+                    # Debug: Inspect fitting results
+                    st.write("Fitting results:", st.session_state.processed_data)
+                    st.write("Session state:", st.session_state)
+
                     if "WASSR" not in submitted_data["selection"] and "DAMB1" not in submitted_data["selection"]:
                         st.session_state.processing_active = False
                         st.session_state.is_processed = True
@@ -425,7 +433,20 @@ if st.session_state.display_data == True:
             plotting.plot_zspec(st.session_state)
             st_functions.save_raw(st.session_state)
             st.success("Images, plots, and raw data saved at **%s**" % save_path)
-        #if "WASSR" in submitted_data["selection"]:
-            
+        if "WASSR" in submitted_data["selection"]:
+            if st.session_state.shared_rois is not None:
+                st.session_state.user_geometry["rois"] = st.session_state.shared_rois
+            else:
+                # Draw ROIs for WASSR if not already available
+                draw_rois.draw_rois(st.session_state, reference, st.session_state.recon['wassr'])
+                st.session_state.shared_rois = st.session_state.user_geometry["rois"]
+        if "DAMB1" in submitted_data["selection"]:
+            if st.session_state.shared_rois is not None:
+                st.session_state.user_geometry["rois"] = st.session_state.shared_rois
+            else:
+                # Draw ROIs for DAMB1 if not already available
+                draw_rois.draw_rois(st.session_state, reference, st.session_state.recon['damb1'])
+                st.session_state.shared_rois = st.session_state.user_geometry["rois"]
+                    
 if st.button("Reset"):
     st.error("To reset and resubmit, please refresh the page.")

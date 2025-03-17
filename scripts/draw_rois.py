@@ -202,19 +202,26 @@ def draw_rois(session_state, data, cest):
         </div>
         """.format(undo=undo, trash=trash), unsafe_allow_html=True)
 
-    # Canvas configuration to ensure the image fills the entire space
-    canvas_result = st_canvas(
-        fill_color="rgba(0, 0, 0, 0)", 
-        stroke_color="yellow", 
-        stroke_width=2, 
-        height=canvas_height,  # Use calculated height to maintain aspect ratio
-        width=canvas_width,     # Use fixed width
-        drawing_mode='polygon', 
-        background_image=Image.open(img_byte_arr),
-        update_streamlit = False,
-        display_toolbar=True,
-        key="canvas"
-    )
+    #Check if there are existing ROIs
+    if session_state.shared_rois is not None:
+        session_state.user_geometry["rois"] = session_state.shared_rois
+        session_state.rois_done = True
+        st.rerun()
+
+    else:
+        # Canvas configuration to ensure the image fills the entire space
+        canvas_result = st_canvas(
+            fill_color="rgba(0, 0, 0, 0)", 
+            stroke_color="yellow", 
+            stroke_width=2, 
+            height=canvas_height,  # Use calculated height to maintain aspect ratio
+            width=canvas_width,     # Use fixed width
+            drawing_mode='polygon', 
+            background_image=Image.open(img_byte_arr),
+            update_streamlit = False,
+            display_toolbar=True,
+            key="canvas"
+        )
 
     # Access the coordinates of the drawn polygon from the canvas_result
     if canvas_result.json_data is not None:
@@ -243,6 +250,7 @@ def draw_rois(session_state, data, cest):
                 #st.write(names) # For debugging
             if st.button("Submit ROI(s)"):
                 session_state.rois_done = True
+                session_state.shared_rois = session_state.user_geometry["rois"]
                 st.rerun()
     
 def cardiac_roi(session_state, data, cest):
@@ -260,14 +268,14 @@ def cardiac_roi(session_state, data, cest):
 
     # Get image data for ROI
     if isinstance(data, dict) and 'm0' in data:
-        m0 = data['m0']  # Replace with your actual image data (numpy array)
+        m0 = data['m0']  
     else:
         m0 = data.squeeze()
         zoom_img = cest['m0']
         if np.shape(m0) != np.shape(zoom_img):
             zoom_factors = np.array(zoom_img.shape) / np.array(m0.shape)
-            m0 = zoom(m0, zoom_factors, order=2)  # Try bilinear
-
+            m0 = zoom(m0, zoom_factors, order=2)  
+            
     # Get image dimensions (height, width)
     img_height, img_width = np.shape(m0)
 
