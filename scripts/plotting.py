@@ -34,6 +34,8 @@ def pixelwise_mapping(image, session_state):
     
     # Initialize empty contrast images for all ROIs combined
     contrasts = session_state.custom_contrasts
+    if contrasts is None:
+        contrasts = ['Amide', 'Creatine', 'NOE (-2.75 ppm)']
     contrasts = ['MT'] + contrasts
     contrast_images = {contrast: np.full_like(image, np.nan, dtype=float)
                        for contrast in contrasts}
@@ -239,12 +241,16 @@ def plot_zspec(session_state):
                 Lorentzian_Difference = data_dict['Lorentzian_Difference']
                 # Plot Lorentzian Difference
                 fig, ax = plt.subplots(figsize=(12, 10))
-                ax.fill_between(Offsets, Lorentzian_Difference * 100, 0, color='gray', alpha=0.5)
+                ax.fill_between(Offsets, Lorentzian_Difference * 100, 0, color='gray', alpha=0.5, label="Raw")
+                total_fit = np.zeros_like(next(iter(Fits.values())))
                 # Automatically plot available fits with assigned colors
                 for contrast in data_dict.keys():
                     if 'Fit' in contrast and contrast not in ['Water_Fit', 'MT_Fit']:
                         color = contrast_colors.get(contrast, '#000000')  # Default to black if missing
                         ax.plot(OffsetsInterp, data_dict[contrast] * 100, linewidth=4, color=color, label=contrast.replace("_Fit", ""))
+                        if 'NOE' not in contrast:
+                            total_fit += data_dict[contrast] * 100
+                ax.plot(OffsetsInterp, total_fit, linewidth=4, color='#D95319', label="Fit")
                 ax.legend(fontsize=16)
                 ax.invert_xaxis()
                 ax.tick_params(axis='both', which='major', labelsize=16)

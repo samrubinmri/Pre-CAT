@@ -60,7 +60,7 @@ ub_noe = [0.25, 5, -1.5]
 ub_creatine = [0.5, 5, 2.6]
 ub_amide = [0.3, 5, 4.0]
 ub_amine = [0.3, 5, 2.8]
-ub_hydroxyl = [0.3, 5, 0.8]
+ub_hydroxyl = [0.3, 5, 1.2]
 
 ##Combine for curve fitting##
 #Step 1
@@ -208,6 +208,11 @@ def _process_spectrum(offsets, spectrum, n_interp, custom_contrasts = None):
         fit_1, _ = curve_fit(Step_1_Fit, offsets, spectrum, p0=p0_corr, bounds=(lb_corr, ub_corr), **options)
         correction = fit_1[2]
         offsets_corrected = offsets - correction
+        # Exception for OH
+        if 'Hydroxyl' in custom_contrasts:
+            cutoffs[2] = 0.4
+        else:
+            cutoffs[2] = 1.4
         # Crop offsets and spectrum
         condition = (offsets_corrected <= cutoffs[0]) | (offsets_corrected >= cutoffs[3]) | \
                     ((offsets_corrected >= cutoffs[1]) & (offsets_corrected <= cutoffs[2]))
@@ -283,7 +288,6 @@ def per_pixel(session_state):
     progress_bar = st.progress(0)
     progress_counter = 0
 
-    st.write("Performing pixelwise fitting...")
     for label, pixels in spectra.items():
         fits[label] = []
         for spectrum in pixels:
@@ -291,10 +295,12 @@ def per_pixel(session_state):
             fits[label].append(result[label][0])  # Assuming result[label] is a list with a single dictionary
             progress_counter += 1
             # Update the progress bar
-            progress_bar.progress(progress_counter / total)
+            progress_bar.progress(progress_counter / total, text="Performing pixelwise fitting...")
     
     # Mark the progress bar as complete
-    progress_bar.progress(1.0)
+    progress_bar.progress(1.0, text="Fitting complete.")
+    # Remove progress bar after full
+    progress_bar.empty()
     return fits
 
 def wassr(offsets, spectra):
