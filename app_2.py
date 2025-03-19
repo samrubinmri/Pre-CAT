@@ -11,7 +11,7 @@ import os
 from scripts import load_study, draw_rois, cest_fitting, plotting, wassr
 from custom import st_functions
 
-site_icon = "./custom/icons/ksp.ico"
+site_icon = "./custom/icons/SitePic.ico"
 st.set_page_config(page_title="Pre-CAT", initial_sidebar_state="expanded", page_icon = site_icon)
 
 if "is_submitted" not in st.session_state:
@@ -79,7 +79,7 @@ st.markdown(
 st.write("### A preclinical CEST-MRI analysis toolbox.")
 with st.sidebar:
     st.write("""## Instructions and Disclaimer
-Specify experiment type(s), ROI, and file locations for raw data.
+Specify experiment type(s), organ of interest, and file locations for raw data.
 
 Follow each subsequent step after carefully reading associated instructions.
 
@@ -108,7 +108,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
     with col1:
         selection = st.pills("Experiment type(s)", options, selection_mode="multi")
     with col2:
-        anatomy = st.pills("ROI", organs)
+        anatomy = st.pills("Organ of interest", organs)
     
     if selection and anatomy:
         folder_path = st.text_input('Input data path', placeholder='User/Documents/MRI_Data/Project/Scan_ID')
@@ -424,10 +424,10 @@ if st.session_state.display_data == True:
     with st.expander('Display and save results', expanded = st.session_state.display_data):
         if "CEST" in submitted_data["selection"]:
             image = st.session_state.recon['cest']['m0']
-            # if st.session_state.submitted_data['organ'] == 'Cardiac':
-                # plotting.show_segmentation(image, st.session_state)
-            # elif st.session_state.submitted_data['organ'] == 'Other':
-                # plotting.show_rois(image, st.session_state)
+            if st.session_state.submitted_data['organ'] == 'Cardiac':
+                plotting.show_segmentation(image, st.session_state)
+            elif st.session_state.submitted_data['organ'] == 'Other':
+                plotting.show_rois(image, st.session_state)
             if st.session_state.submitted_data['pixelwise'] == True:
                 plotting.pixelwise_mapping(image, st.session_state)
             plotting.plot_zspec(st.session_state)
