@@ -424,6 +424,11 @@ if st.session_state.display_data == True:
                 plotting.pixelwise_mapping(image, st.session_state)
             plotting.plot_zspec(st.session_state)
             st_functions.save_raw(st.session_state)
+            if st.session_state.submitted_data['organ'] == 'Cardiac': 
+                rmse = st.session_state.processed_data["fits"]["Anteroseptal"]["RMSE"]
+                if rmse > 0.02:
+                    st.warning("High RMSE in anteroseptal segment! Recommend examining and/or excluding this dataset!")
+                st.write(rmse)
             st.success("Images, plots, and raw data saved at **%s**" % save_path)
         #if "WASSR" in submitted_data["selection"]:
             
