@@ -194,36 +194,58 @@ class BrukerData:
             self.reco_data_norm = np.divide(abs(self.reco_data[:,1::2]), 
                                             abs(self.reco_data[:,0::2]))
             
+    # def _GenKspace_CEST_UTE(self):
+
+    #     complexValues = self.raw_fid
+
+    #     NTotalPoints = len(self.method["PVM_TrajKx"])
+    #     NPoints = self.method["PVM_EncMatrix"][0]
+    #     NRec = self.method["PVM_EncNReceivers"]
+    #     NFrames = self.method["PVM_NRepetitions"]
+    #     NProj = self.method["NPro"]
+        
+    #     BlockSize = len(complexValues)//NProj//NFrames
+    #     Data = np.reshape(complexValues,(BlockSize, NProj, NFrames), order='F')
+    #     ToDelete = NTotalPoints - NPoints
+    #     ##Split per receiver and delete extraneous points##
+    #     ToDelete = NTotalPoints - NPoints
+    #     Data_Ch1 = Data[0:NTotalPoints, :, :]
+    #     Data_Ch2 = Data[NTotalPoints:NTotalPoints*2, :, :]
+    #     Data_Ch3 = Data[NTotalPoints*2:NTotalPoints*3, :, :]
+    #     Data_Ch4 = Data[NTotalPoints*3:NTotalPoints*4, :, :]
+    #     K_Ch1 = Data_Ch1[ToDelete:, :, :]
+    #     K_Ch2 = Data_Ch2[ToDelete:, :, :]
+    #     K_Ch3 = Data_Ch3[ToDelete:, :, :]
+    #     K_Ch4 = Data_Ch4[ToDelete:, :, :]
+    #     ##Throw into a single array##
+    #     KSpoke = np.empty((NPoints, NProj, NRec, NFrames), dtype='complex128')
+    #     KSpoke[:,:,0,:] = K_Ch1
+    #     KSpoke[:,:,1,:] = K_Ch2
+    #     KSpoke[:,:,2,:] = K_Ch3
+    #     KSpoke[:,:,3,:] = K_Ch4
+        
+    #     return KSpoke
+    
     def _GenKspace_CEST_UTE(self):
-
         complexValues = self.raw_fid
-
+    
         NTotalPoints = len(self.method["PVM_TrajKx"])
         NPoints = self.method["PVM_EncMatrix"][0]
         NRec = self.method["PVM_EncNReceivers"]
         NFrames = self.method["PVM_NRepetitions"]
         NProj = self.method["NPro"]
         
-        BlockSize = len(complexValues)//NProj//NFrames
-        Data = np.reshape(complexValues,(BlockSize, NProj, NFrames), order='F')
+        BlockSize = len(complexValues) // (NProj * NFrames)
+        Data = np.reshape(complexValues, (BlockSize, NProj, NFrames), order='F')
         ToDelete = NTotalPoints - NPoints
-        ##Split per receiver and delete extraneous points##
-        ToDelete = NTotalPoints - NPoints
-        Data_Ch1 = Data[0:NTotalPoints, :, :]
-        Data_Ch2 = Data[NTotalPoints:NTotalPoints*2, :, :]
-        Data_Ch3 = Data[NTotalPoints*2:NTotalPoints*3, :, :]
-        Data_Ch4 = Data[NTotalPoints*3:NTotalPoints*4, :, :]
-        K_Ch1 = Data_Ch1[ToDelete:, :, :]
-        K_Ch2 = Data_Ch2[ToDelete:, :, :]
-        K_Ch3 = Data_Ch3[ToDelete:, :, :]
-        K_Ch4 = Data_Ch4[ToDelete:, :, :]
-        ##Throw into a single array##
-        KSpoke = np.empty((NPoints, NProj, NRec, NFrames), dtype='complex128')
-        KSpoke[:,:,0,:] = K_Ch1
-        KSpoke[:,:,1,:] = K_Ch2
-        KSpoke[:,:,2,:] = K_Ch3
-        KSpoke[:,:,3,:] = K_Ch4
         
+        # Dynamically split data per receiver
+        KSpoke = np.empty((NPoints, NProj, NRec, NFrames), dtype='complex128')
+        
+        for ch in range(NRec):
+            Data_Ch = Data[NTotalPoints * ch:NTotalPoints * (ch + 1), :, :]
+            KSpoke[:, :, ch, :] = Data_Ch[ToDelete:, :, :]
+    
         return KSpoke
 
 
