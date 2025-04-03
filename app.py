@@ -81,6 +81,8 @@ Specify experiment type(s), ROI, and file locations for raw data.
 
 Follow each subsequent step after carefully reading associated instructions.
 
+**For users unfamiliar with cardiac anatomy and terminology, detailed instructions for ROI prescription are included in the [Github repository](https://github.com/jweigandwhittier/Pre-CAT/blob/main/instructions/cardiac_rois.pdf).**
+
 When using **Pre-CAT**, please remember the following:
 - **Pre-CAT** is not licensed for clinical use and is intended for research purposes only.
 - Due to B0 inhomogeneities, cardiac CEST data is only useful in anterior segments.
