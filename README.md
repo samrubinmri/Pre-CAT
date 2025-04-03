@@ -31,7 +31,9 @@ After activating the included Conda environment, navigate to the **Pre-CAT** dir
 streamlit run app.py
 ```
 
-In-depth instructions are included in the Streamlit interface. On release, a video tutorial will be included here as well.
+In-depth instructions are included in the Streamlit interface. On release, a video tutorial will be included here as well. 
+
+For users unfamiliar with murine and cardiac anatomy, instructions for cardiac ROI prescriptions are included [here](https://github.com/jweigandwhittier/Pre-CAT/blob/main/instructions/cardiac_rois.pdf).
 
 ## Example Data
 
