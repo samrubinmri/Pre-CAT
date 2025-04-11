@@ -111,6 +111,40 @@ def add_hoverable_title_with_image_inline(title_text, image_url):
     # Inject the CSS and HTML into Streamlit
     st.markdown(hover_css, unsafe_allow_html=True)
     return hover_html
+
+def inject_hover_email_css():
+    hover_css = """
+    <style>
+    .hoverable-email {
+        position: relative;
+        display: inline-block;
+        cursor: pointer;
+        font-size: 1.0rem;
+        color: #1f77b4;
+    }
+    .hoverable-email .image-tooltip {
+        visibility: hidden;
+        opacity: 0;
+        position: absolute;
+        top: 350%;
+        left: 80%;
+        transform: translateX(-50%);
+        transition: opacity 0.3s, visibility 0.3s;
+        z-index: 999;
+    }
+    .hoverable-email:hover .image-tooltip {
+        visibility: visible;
+        opacity: 1;
+    }
+    .image-tooltip img {
+        width: 200px;
+        height: auto;
+        border-radius: 10px;
+        background: transparent;
+    }
+    </style>
+    """
+    st.markdown(hover_css, unsafe_allow_html=True)
         
 def save_raw(session_state):
     save_path = session_state.submitted_data["save_path"]
