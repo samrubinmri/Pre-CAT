@@ -1,6 +1,6 @@
 name: pre-cat
 channels:
-  - conda-forge
+  - defaults
 dependencies:
   - brotli=1.1.0=hd74edd7_2
   - brotli-bin=1.1.0=hd74edd7_2
@@ -112,4 +112,3 @@ dependencies:
       - toml==0.10.2
       - typing-extensions==4.12.2
       - urllib3==2.3.0
-prefix: /Users/jonah/miniforge3/envs/pre-cat
