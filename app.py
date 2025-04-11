@@ -93,13 +93,24 @@ When using **Pre-CAT**, please remember the following:
 This webapp is associated with the following paper, please cite this work when using **Pre-CAT**. \n
 Weigand-Whittier J, Wendland M, Lam B, et al. *Ungated, plug-and-play cardiac CEST-MRI using radial FLASH with segmented saturation*. Magn Reson Med (2024). 10.1002/mrm.30382""")
 
-    email = "jweigandwhittier@berkeley.edu"
-    encoded_email = "jweigandwhittier&#64;berkeley&#46;edu"
+    st_functions.inject_hover_email_css()
+    
     st.write("## Contact")
-    st.markdown(f"""Contact me with any issues or questions:
-<a href='mailto:{encoded_email}'>{encoded_email}</a>
-                
-Please add **[Pre-CAT]** to the subject line of your email.""", unsafe_allow_html=True)
+    
+    st.markdown(f"""
+    <p style="margin-bottom: 0">
+    Contact me with any issues or questions: 
+    <span class="hoverable-email">
+        <a href="mailto:jweigandwhittier@berkeley.edu">jweigandwhittier@berkeley.edu</a>
+        <span class="image-tooltip">
+            <img src="https://i.ibb.co/M5h9MyF1/Subject-5.png" alt="Hover image">
+        </span>
+    </span>
+    </p>
+    <br>
+    """, unsafe_allow_html=True)
+    
+    st.write("Please add **[Pre-CAT]** to the subject line of your email.")
 
 with st.expander("Load data", expanded = not st.session_state.is_submitted):
     options = ["CEST", "WASSR", "DAMB1"]
@@ -427,9 +438,9 @@ if st.session_state.display_data == True:
             plotting.plot_zspec(st.session_state)
             st_functions.save_raw(st.session_state)
             if st.session_state.submitted_data['organ'] == 'Cardiac': 
-                rmse = st.session_state.processed_data["fits"]["Anteroseptal"]["RMSE"]
+                rmse = st.session_state.processed_data["fits"]["Anterior"]["RMSE"]
                 if rmse > 0.02:
-                    st.warning("High RMSE in anteroseptal segment! Recommend examining and/or excluding this dataset!")
+                    st.warning("High RMSE in anterior segment! Recommend examining and/or excluding this dataset!")
                 st.write(rmse)
             st.success("Images, plots, and raw data saved at **%s**" % save_path)
         #if "WASSR" in submitted_data["selection"]:
