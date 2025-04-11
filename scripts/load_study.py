@@ -121,10 +121,11 @@ def thermal_drift(session_state):
 
         matrix = np.size(images, 0)
         grid_index = np.arange(0,matrix)
-
-        points = (grid_index,grid_index,ref_offsets)
+        sorted_offsets = np.sort(ref_offsets)
+        points = (grid_index,grid_index,sorted_offsets)
         xi, yi, fi = np.meshgrid(grid_index, grid_index, offsets, indexing='ij')
         values = np.stack((xi, yi, fi), axis=-1)
+        
 
         m0_interp = interpn(points, m0, values)
         images = np.nan_to_num(images/m0_interp)

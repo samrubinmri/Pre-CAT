@@ -205,7 +205,8 @@ def plot_zspec(session_state):
                     'Amide_Fit': '#7E2F8E',
                     'Amine_Fit': '#FF6700',  
                     'Creatine_Fit': '#A2142F',  
-                    'Hydroxyl_Fit': '#4DBEEE',  
+                    'Hydroxyl_Fit': '#4DBEEE',
+                    'NOE (-1.6 ppm)_Fit':"#e144c4"    
                 }
                 # Get a color cycle for any remaining fits
                 color_cycle = itertools.cycle(plt.get_cmap('viridis').colors)  # Change colormap if needed
