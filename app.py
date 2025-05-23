@@ -87,8 +87,8 @@ When using **Pre-CAT**, please remember the following:
 - **Pre-CAT** is not licensed for clinical use and is intended for research purposes only.
 - Due to B0 inhomogeneities, cardiac CEST data is only useful in anterior segments.
 - Each raw data file includes calculated RMSE in the CEST fitting region. Please refer to this if output data seem noisy.
-- By default, **Pre-CAT** fits a single rNOE peak with a starting offset of -2.75 ppm (upper bound -4.5 ppm; lower bound -1.5 ppm).
-- Recently Sam added another NOE Peak at -1.6ppm which is not set to default. It's contrained between -1.2 and -1.8ppm based on X.-Y. Zhang et al. Magnetic Resonance Imaging, Oct. 2016, doi: 10.1016/j.mri.2016.05.002.             
+- By default, **Pre-CAT** fits two rNOE peaks at frequency offsets -1.6 ppm (upper bound: -1.2 ppm, lower bound: -1.8 ppm) and -3.5 ppm (upper bound: -3.2 ppm, lower bound: -4.0 ppm) per Zhang et al. Magnetic Resonance Imaging, Oct. 2016, doi: 10.1016/j.mri.2016.05.002.
+             
     """)
     st.write("""## Citation
 This webapp is associated with the following paper, please cite this work when using **Pre-CAT**. \n
@@ -208,8 +208,8 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                             'Choose contrasts', help="Default contrasts are: amide, creatine, NOE. Water and MT are always fit.")
                         if choose_contrasts:
                             #contrasts = ["NOE (-2.75 ppm)", "Amide", "Creatine", "Amine", "Hydroxyl"]
-                            contrasts = ["NOE (-2.75 ppm)", "Amide", "Creatine", "Amine", "Hydroxyl", "NOE (-1.6 ppm)" ]
-                            default_contrasts = ["NOE (-2.75 ppm)", "Amide", "Creatine"]
+                            contrasts = ["NOE (-3.5 ppm)", "Amide", "Creatine", "Amine", "Hydroxyl", "NOE (-1.6 ppm)"]
+                            default_contrasts = ["NOE (-3.5 ppm)", "Amide", "Creatine", "NOE (-1.6 ppm)"]
                             contrast_selection = st.pills ("Contrasts", contrasts, default=default_contrasts, selection_mode="multi")
                             st.session_state.custom_contrasts = contrast_selection
                         else:

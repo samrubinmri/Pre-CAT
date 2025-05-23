@@ -40,7 +40,7 @@ ub_corr_ph = ub_water
 ##Starting points for curve fitting: amplitude, FWHM, peak center##
 p0_water = [0.8, 0.2, 0]
 p0_mt = [0.15, 40, -1]
-p0_noe = [0.05, 1, -2.75]
+p0_noe = [0.05, 1, -3.50]
 p0_noe_neg_1_6 = [0.05, 1, -1.6]
 p0_creatine = [0.05, 0.5, 2.0]
 p0_amide = [0.05, 1.5, 3.5]
@@ -49,7 +49,7 @@ p0_hydroxyl = [0.05, 1.5, 0.6]
 ##Lower bounds for curve fitting##
 lb_water = [0.02, 0.01, -1e-6]
 lb_mt = [0.0, 30, -2.5]
-lb_noe = [0.0, 0.5, -4.5]
+lb_noe = [0.0, 0.5, -4.0]
 lb_noe_neg_1_6 = [0.0, 0.5, -1.8]
 lb_creatine = [0.0, 0.5, 1.6]
 lb_amide = [0.0, 0.5, 3.2]
@@ -181,10 +181,10 @@ def two_step(spectra, offsets, contrasts):
 
 def _process_spectrum(offsets, spectrum, n_interp, custom_contrasts=None):
     if custom_contrasts is None:
-        custom_contrasts = ['Amide', 'Creatine', 'NOE (-2.75 ppm)']
+        custom_contrasts = ['Amide', 'Creatine', 'NOE (-3.5 ppm)']
 
     contrast_params = {
-        'NOE (-2.75 ppm)': (p0_noe, lb_noe, ub_noe),
+        'NOE (-3.5 ppm)': (p0_noe, lb_noe, ub_noe),
         'Creatine': (p0_creatine, lb_creatine, ub_creatine),
         'Amide': (p0_amide, lb_amide, ub_amide),
         'Amine': (p0_amine, lb_amine, ub_amine),
@@ -294,10 +294,10 @@ def _process_spectrum(offsets, spectrum, n_interp, custom_contrasts=None):
 
 # def _process_spectrum(offsets, spectrum, n_interp, custom_contrasts = None):
 #     if custom_contrasts is None:
-#         custom_contrasts = ['Amide', 'Creatine', 'NOE (-2.75 ppm)']
+#         custom_contrasts = ['Amide', 'Creatine', 'NOE (-3.5 ppm)']
 #     # Define fitting parameters dynamically
 #     contrast_params = {
-#         'NOE (-2.75 ppm)': (p0_noe, lb_noe, ub_noe),
+#         'NOE (-3.5 ppm)': (p0_noe, lb_noe, ub_noe),
 #         'Creatine': (p0_creatine, lb_creatine, ub_creatine),
 #         'Amide': (p0_amide, lb_amide, ub_amide),
 #         'Amine': (p0_amine, lb_amine, ub_amine),

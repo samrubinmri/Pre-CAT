@@ -35,7 +35,7 @@ def pixelwise_mapping(image, session_state):
     # Initialize empty contrast images for all ROIs combined
     contrasts = session_state.custom_contrasts
     if contrasts is None:
-        contrasts = ['Amide', 'Creatine', 'NOE (-2.75 ppm)']
+        contrasts = ['Amide', 'Creatine', 'NOE (-3.5 ppm)']
     contrasts = ['MT'] + contrasts
     contrast_images = {contrast: np.full_like(image, np.nan, dtype=float)
                        for contrast in contrasts}
@@ -190,7 +190,7 @@ def plot_zspec(session_state):
                 Fits = {key: value for key, value in data_dict.items() if 'Fit' in key}
                 # Water_Fit = data_dict['Water_Fit']
                 # Mt_Fit = data_dict['MT_Fit']
-                # Noe_Fit = data_dict['NOE (-2.75 ppm)_Fit']
+                # Noe_Fit = data_dict['NOE (-3.5 ppm)_Fit']
                 # Creatine_Fit = data_dict['Creatine_Fit']
                 # Amide_Fit = data_dict['Amide_Fit']
 
@@ -201,7 +201,7 @@ def plot_zspec(session_state):
                 contrast_colors = {
                     'Water_Fit': '#0072BD',
                     'MT_Fit': '#EDB120',
-                    'NOE (-2.75 ppm)_Fit': '#77AC30',
+                    'NOE (-3.5 ppm)_Fit': '#77AC30',
                     'Amide_Fit': '#7E2F8E',
                     'Amine_Fit': '#FF6700',  
                     'Creatine_Fit': '#A2142F',  
