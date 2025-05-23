@@ -121,8 +121,7 @@ def thermal_drift(session_state):
 
         matrix = np.size(images, 0)
         grid_index = np.arange(0,matrix)
-        sorted_offsets = np.sort(ref_offsets)
-        points = (grid_index,grid_index,sorted_offsets)
+        points = (grid_index, grid_index, ref_offsets)
         xi, yi, fi = np.meshgrid(grid_index, grid_index, offsets, indexing='ij')
         values = np.stack((xi, yi, fi), axis=-1)
         
