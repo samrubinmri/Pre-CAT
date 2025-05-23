@@ -175,8 +175,11 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     """,
                     unsafe_allow_html=True,
                     )
+                    smoothing_filter = True
                     pixelwise = st.toggle(
                         'Pixelwise mapping', help="Accuracy is highly dependent on field homogeneity.")
+                    if pixelwise:
+                        smoothing_filter = st.toggle('Median smoothing filter', help="Apply a median filter to smooth contrast maps.")
                     if anatomy == "Other":
                         reference = st.toggle(
                             'Additional reference image', help="Use this option to load an additional reference image for ROI(s)/masking. By default, the unsaturated (S0/M0) image is used.")
@@ -307,6 +310,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                             st.session_state.submitted_data['cest_path'] = cest_path
                             st.session_state.submitted_data['cest_type'] = cest_type
                             st.session_state.submitted_data['pixelwise'] = pixelwise
+                            st.session_state.submitted_data['smoothing_filter'] = smoothing_filter
                         if "WASSR" in selection: 
                             st.session_state.submitted_data['wassr_path'] = wassr_path
                             st.session_state.submitted_data['wassr_type'] = wassr_type

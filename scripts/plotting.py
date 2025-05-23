@@ -49,14 +49,15 @@ def pixelwise_mapping(image, session_state):
                 contrast_images[contrast][i, j] = contrast_list[idx]
 
     # Apply median filtering to smooth the contrast images
-    for contrast in contrast_images:
-        contrast_images[contrast] = medfilt2d(contrast_images[contrast], kernel_size=3)
+    if session_state.submitted_data['smoothing_filter'] == True:
+        for contrast in contrast_images:
+            contrast_images[contrast] = medfilt2d(contrast_images[contrast], kernel_size=3)
 
     # Plotting helper function
     def plot_contrast(base_image, contrast_image, title):
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.imshow(base_image[y_min:y_max,x_min:x_max], cmap="gray")
-        im = ax.imshow(contrast_image[y_min:y_max,x_min:x_max], cmap="viridis", alpha=0.7, 
+        im = ax.imshow(contrast_image[y_min:y_max,x_min:x_max], cmap="viridis", alpha=0.9, 
                        norm=Normalize(vmin=0, vmax=np.nanmax(contrast_image)))
         ax.set_title(title, fontsize=28, weight='bold', fontname='Arial')
         ax.axis("off")
