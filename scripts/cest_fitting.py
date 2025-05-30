@@ -181,7 +181,7 @@ def two_step(spectra, offsets, contrasts):
 
 def _process_spectrum(offsets, spectrum, n_interp, custom_contrasts=None):
     if custom_contrasts is None:
-        custom_contrasts = ['Amide', 'Creatine', 'NOE (-3.5 ppm)']
+        custom_contrasts = ['Amide', 'Creatine', 'NOE (-3.5 ppm)', 'NOE (-1.6 ppm)']
 
     contrast_params = {
         'NOE (-3.5 ppm)': (p0_noe, lb_noe, ub_noe),

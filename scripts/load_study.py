@@ -132,6 +132,7 @@ def thermal_drift(session_state):
         session_state.recon['cest']['imgs'] = images
         session_state.recon['cest']['offsets'] = offsets
         session_state.recon['cest']['m0'] = m0[:, :, 0]
+        sesson_state.recon['cest']['m0_final'] = m0[:, :, -1]
         session_state.recon['cest']['m0_interp'] = m0_interp
         session_state.drift_done = True
         
