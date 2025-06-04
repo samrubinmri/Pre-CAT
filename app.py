@@ -360,10 +360,8 @@ if st.session_state.is_submitted:
                         "maps":None}
             if 'WASSR' in st.session_state.submitted_data['selection']:
                 st.session_state.processed_data["wassr_fits"] = None
-                st.session_state.processed_data["b0_map"] = None
-                st.session_state.processed_data["b0_boxplot"] = None
             if 'DAMB1' in st.session_state.submitted_data['selection']:
-                st.session_state.processed_data["b1_map"] = None
+                st.session_state.processed_data["b1_fits"] = None
         if "loading_done" not in st.session_state:
             st.session_state.loading_done = {}
             if 'CEST' in st.session_state.submitted_data['selection']:
@@ -397,23 +395,24 @@ if st.session_state.is_submitted:
                     data_cest = load_study.recon_bruker(cest_path, folder_path)
                     st.session_state.recon['cest'] = data_cest
                     st.session_state.loading_done['cest'] = True
+                    ## Add ability to rotate rectilinear data
             elif cest_type == 'Radial':
-                if 'rotation_stage' not in st.session_state:
-                    st.session_state['rotation_stage'] = 'select_rotation'  # Stages: 'select_rotation', 'confirm_rotation', 'finalized'
-                if 'selected_rotation' not in st.session_state:
-                    st.session_state['selected_rotation'] = 0
-                if 'rotated_imgs' not in st.session_state:
-                    st.session_state['rotated_imgs'] = None
                 if st.session_state.recon['cest'] is None:
                     data_cest = load_study.recon_bart(cest_path, folder_path)
                     st.session_state.recon['cest'] = data_cest
-                if st.session_state.recon['cest'] is not None:
-                    if st.session_state.rot_done == False:
-                        load_study.rotate_imgs(st.session_state, 'cest')
-                    elif st.session_state.rot_done == True:
-                        st.success("Rotation finalized!")
-                        st.session_state.loading_done['cest'] = True
-                        st.session_state['cest_rot_exists'] = True
+            if 'rotation_stage' not in st.session_state:
+                    st.session_state['rotation_stage'] = 'select_rotation'  # Stages: 'select_rotation', 'confirm_rotation', 'finalized'
+            if 'selected_rotation' not in st.session_state:
+                st.session_state['selected_rotation'] = 0
+            if 'rotated_imgs' not in st.session_state:
+                st.session_state['rotated_imgs'] = None
+            if st.session_state.recon['cest'] is not None:
+                if st.session_state.rot_done == False:
+                    load_study.rotate_imgs(st.session_state, 'cest')
+                elif st.session_state.rot_done == True:
+                    st.success("Rotation finalized!")
+                    st.session_state.loading_done['cest'] = True
+                    st.session_state['cest_rot_exists'] = True
             if st.session_state.loading_done['cest'] == True:
                 if st.session_state.drift_done['cest'] == False:
                     load_study.thermal_drift(st.session_state, 'cest')
@@ -460,27 +459,27 @@ if st.session_state.is_submitted:
                     st.session_state.recon['wassr'] = data_wassr
                     st.session_state.loading_done['wassr'] = True
             elif wassr_type == 'Radial':
-                if 'rotation_stage' not in st.session_state:
-                    st.session_state['rotation_stage'] = 'select_rotation'  # Stages: 'select_rotation', 'confirm_rotation', 'finalized'
-                if 'selected_rotation' not in st.session_state:
-                    st.session_state['selected_rotation'] = 0
-                if 'rotated_imgs' not in st.session_state:
-                    st.session_state['rotated_imgs'] = None
-                if 'wassr_rot_exists' not in st.session_state:
-                    st.session_state['wassr_rot_exists'] = False
                 if st.session_state.recon['wassr'] is None:
                     data_wassr = load_study.recon_bart(wassr_path, folder_path)
                     st.session_state.recon['wassr'] = data_wassr
-                if st.session_state.recon['wassr'] is not None:
-                    if st.session_state['cest_rot_exists'] == False and st.session_state.rot_done == False:
-                        load_study.rotate_imgs(st.session_state, 'wassr')
-                    elif st.session_state.rot_done == True and st.session_state['cest_rot_exists'] == False:
-                        st.session_state['wassr_rot_exists'] = True
-                        st.session_state.loading_done['wassr'] = True
-                        st.success("Rotation finalized!")
-                    elif st.session_state['cest_rot_exists'] == True:
-                        load_study.quick_rot(st.session_state, 'wassr')
-                        st.session_state.loading_done['wassr'] = True
+            if 'rotation_stage' not in st.session_state:
+                st.session_state['rotation_stage'] = 'select_rotation'  # Stages: 'select_rotation', 'confirm_rotation', 'finalized'
+            if 'selected_rotation' not in st.session_state:
+                st.session_state['selected_rotation'] = 0
+            if 'rotated_imgs' not in st.session_state:
+                st.session_state['rotated_imgs'] = None
+            if 'wassr_rot_exists' not in st.session_state:
+                st.session_state['wassr_rot_exists'] = False
+            if st.session_state.recon['wassr'] is not None:
+                if st.session_state['cest_rot_exists'] == False and st.session_state.rot_done == False:
+                    load_study.rotate_imgs(st.session_state, 'wassr')
+                elif st.session_state.rot_done == True and st.session_state['cest_rot_exists'] == False:
+                    st.session_state['wassr_rot_exists'] = True
+                    st.session_state.loading_done['wassr'] = True
+                    st.success("Rotation finalized!")
+                elif st.session_state['cest_rot_exists'] == True:
+                    load_study.quick_rot(st.session_state, 'wassr')
+                    st.session_state.loading_done['wassr'] = True
             if st.session_state.loading_done['wassr'] == True:
                 if st.session_state.drift_done['wassr'] == False:
                     load_study.thermal_drift(st.session_state, 'wassr')
@@ -507,11 +506,28 @@ if st.session_state.is_submitted:
                 imgs = st.session_state.recon['wassr']['imgs']
                 st.session_state.processed_data['wassr_fits'] = cest_fitting.fit_wassr(imgs, st.session_state)
         # DAMB1 processing
-        if "DAMB1" in submitted_data["selection"]:
-            if st.session_state.rot_done == True:
-                load_study.quick_rot(st.session_state, 'damb1')
-            else:
-                load_study.rotate_imgs(st.session_state, 'damb1')
+        cest_selected = "CEST" in submitted_data["selection"]
+        wassr_selected = "WASSR" in submitted_data["selection"]
+        damb1_selected = "DAMB1" in submitted_data["selection"]
+        cest_ready = (
+            st.session_state.loading_done.get("cest") and
+            st.session_state.drift_done.get("cest") and
+            st.session_state.rois_done and
+            st.session_state.processed_data.get("fits") is not None
+        )
+        wassr_ready = (
+            st.session_state.drift_done.get("wassr") and
+            st.session_state.processed_data.get("wassr_fits") is not None
+        )
+        if damb1_selected and (
+            (cest_selected and wassr_selected and cest_ready and wassr_ready) or
+            (cest_selected and not wassr_selected and cest_ready) or
+            (not cest_selected and wassr_selected and wassr_ready)
+        ):
+            if session_state.recon['damb1'] is None:
+                data_damb1 = load_study.recon_damb1(st.session_state)
+                st.session_state.recon['damb1'] = data_damb1
+            
     # Final check: Only mark as processed if all selected types are done
     required_keys = []
     if 'CEST' in submitted_data['selection']:
@@ -531,7 +547,7 @@ if st.session_state.is_submitted:
 
     if 'DAMB1' in submitted_data['selection']:
         required_keys.append(
-            st.session_state.processed_data.get('b1_map') is not None
+            st.session_state.processed_data.get('b1_fits') is not None
         )
 
     # If all conditions are True, finalize processing
