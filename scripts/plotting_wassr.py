@@ -79,7 +79,7 @@ def plot_wassr(image, session_state):
     # Plot
     fig, ax = plt.subplots(1, 1, figsize=(6, 6))
     ax.imshow(image[y_min:y_max, x_min:x_max], cmap='gray')
-    im = ax.imshow(transparent_b0[y_min:y_max, x_min:x_max], cmap='plasma', alpha=0.7)
+    im = ax.imshow(transparent_b0[y_min:y_max, x_min:x_max], cmap='plasma', alpha=0.9)
     ax.set_title('WASSR Map', fontsize=28, fontname='Arial', weight='bold')
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
