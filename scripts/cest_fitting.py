@@ -368,25 +368,4 @@ def fit_wassr(imgs, session_state):
 
     progress_bar.progress(1.0, text="WASSR B₀ fitting complete.")
     progress_bar.empty()
-    session_state.processed_data['wassr_fits'] = pixelwise
-
-def fit_b0_shifts(spectra, offsets, n_interp):
-    b0_shifts = []
-    for spectrum in spectra:
-        pixel_offsets = offsets.copy()
-        spectrum = np.array(spectrum)
-        if pixel_offsets[0] > pixel_offsets[-1]:
-            pixel_offsets = np.flip(pixel_offsets)
-            spectrum = np.flip(spectrum)
-        try:
-            cubic_spline = CubicSpline(pixel_offsets, spectrum)
-            offsets_interp = np.linspace(pixel_offsets[0], pixel_offsets[-1], n_interp)
-            spectrum_interp = cubic_spline(offsets_interp)
-
-            Fit_1, _ = curve_fit(Step_1_Fit, offsets_interp, spectrum_interp, p0=p0_corr, bounds=(lb_corr, ub_corr))
-            Water_Fit = Lorentzian(offsets_interp, Fit_1[0], Fit_1[1], Fit_1[2])
-            b0_shift = offsets_interp[np.argmax(Water_Fit)]
-        except Exception:
-            b0_shift = np.nan
-        b0_shifts.append(b0_shift)
-    return b0_shifts
+    return pixelwise

@@ -505,7 +505,7 @@ if st.session_state.is_submitted:
                         st.session_state.user_geometry['masks']['lv'] = draw_rois.calc_lv_mask(masks)
                         draw_rois.aha_segmentation(image, st.session_state)
                 imgs = st.session_state.recon['wassr']['imgs']
-                cest_fitting.fit_wassr(imgs, st.session_state)
+                st.session_state.processed_data['wassr_fits'] = cest_fitting.fit_wassr(imgs, st.session_state)
         # DAMB1 processing
         if "DAMB1" in submitted_data["selection"]:
             if st.session_state.rot_done == True:
