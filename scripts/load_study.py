@@ -33,7 +33,11 @@ def recon_bruker(num, directory):
     data = bruker.ReadExperiment(directory, num)
     offsets = np.round(data.method["Cest_Offsets"]/data.method["PVM_FrqWork"][0],1)
     imgs = data.proc_data
-    imgs = np.rot90(imgs, k=2)
+    visu = data.visu
+    orientation = np.array(visu['VisuCoreOrientation'].reshape(3,3))
+    flip_y = orientation[0, 1] < 0
+    if flip_y == True:
+        imgs = np.flip(imgs, axis=1)
     study = {"imgs": imgs, "offsets": offsets}
     return study
 
@@ -58,6 +62,29 @@ def recon_bart(num, directory):
     imgs = np.stack(imgs, axis=2)
     study = {"imgs": imgs, "offsets": offsets}
     return study
+
+def recon_damb1(session_state):
+    directory = st.session_state.submitted_data['folder_path']
+    theta_path = st.session_state.submitted_data['theta_path']
+    two_theta_path = st.session_state.submitted_data['two_theta_path']
+    exp_theta = bruker.ReadExperiment(directory, theta_path)
+    exp_two_theta = bruker.ReadExperiment(directory, two_theta_path)
+    visu = theta.visu
+    theta = exp_theta.proc_data
+    two_theta = exp_two_theta.proc_data
+    orientation = np.array(visu['VisuCoreOrientation'].reshape(3,3))
+    flip_y = orientation[0, 1] < 0
+    if flip_y == True:
+        theta = np.flip(theta, axis=1)
+        two_theta = np.flip(two_theta, axis=1)
+    flip = exp_theta.acqp('ACQ_flip_angle')
+    ratio = np.clip(two_theta / (2 * theta), -1.0, 1.0)
+    theta_actual_rad = np.arccos(ratio)
+    theta_actual_deg = np.rad2deg(theta_actual_rad)
+    flip_error = flip - theta_actual_deg
+    flip_error = np.nan_to_num(flip_error)
+    flip_error = np.squeeze(flip_error)
+    return flip_error
 
 def rotate_imgs(session_state, exp_type):
     imgs = session_state.recon[exp_type]['imgs']
