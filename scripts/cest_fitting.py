@@ -322,52 +322,44 @@ def fit_wassr(imgs, session_state):
     organ = session_state.submitted_data['organ']
     offsets = session_state.recon['wassr']['offsets']
     pixelwise = {}
-
-    # Select which masks to use
     if organ == 'Cardiac':
-        # Use AHA segmentation
-        aha_segments = session_state.user_geometry['aha']  # dict: {label: list of (i,j)}
-        labels_coords = aha_segments.items()
+        segment_masks = session_state.user_geometry['aha']  # dict: {label: list of (i,j)}
+        for label, coord_list in segment_masks.items():
+            spectra = []
+            for i, j in coord_list:
+                spectrum = [imgs[i, j, k] for k in range(imgs.shape[2])]
+                spectra.append(spectrum)
+            b0_shifts = fit_b0_shifts(spectra, offsets, n_interp)
+            pixelwise[label] = b0_shifts
     else:
-        # Use provided masks for other organs
-        labels_coords = session_state.user_geometry['masks'].items()
-
-    for label, coord_list in labels_coords:
-        spectra = []
-        for coord in coord_list:
-            spectrum = []
-            for i in range(imgs.shape[2]):
-                spectrum.append(imgs[coord[0], coord[1], i])
-            spectra.append(spectrum)
-
-        b0_shifts = []
-        for spectrum in spectra:
-            pixel_offsets = offsets.copy()
-            spectrum = np.array(spectrum)
-
-            # Flip if needed
-            if pixel_offsets[0] > pixel_offsets[-1]:
-                pixel_offsets = np.flip(pixel_offsets)
-                spectrum = np.flip(spectrum)
-
-            try:
-                # Interpolate
-                cubic_spline = CubicSpline(pixel_offsets, spectrum)
-                offsets_interp = np.linspace(pixel_offsets[0], pixel_offsets[-1], n_interp)
-                spectrum_interp = cubic_spline(offsets_interp)
-
-                # Fit
-                Fit_1, _ = curve_fit(Step_1_Fit, offsets_interp, spectrum_interp, p0=p0_corr, bounds=(lb_corr, ub_corr))
-                Water_Fit = Lorentzian(offsets_interp, Fit_1[0], Fit_1[1], Fit_1[2])
-
-                # B0 shift
-                b0_shift = offsets_interp[np.argmax(Water_Fit)]
-
-            except Exception:
-                b0_shift = np.nan
-
-            b0_shifts.append(b0_shift)
-
-        pixelwise[label] = b0_shifts
-
+        masks = session_state.user_geometry['masks']  # dict: {label: 2D boolean mask}
+        for label, mask in masks.items():
+            coord_list = np.argwhere(mask)
+            spectra = []
+            for i, j in coord_list:
+                spectrum = [imgs[i, j, k] for k in range(imgs.shape[2])]
+                spectra.append(spectrum)
+            b0_shifts = fit_b0_shifts(spectra, offsets, n_interp)
+            pixelwise[label] = b0_shifts
     session_state.processed_data['wassr_fits'] = pixelwise
+
+def fit_b0_shifts(spectra, offsets, n_interp):
+    b0_shifts = []
+    for spectrum in spectra:
+        pixel_offsets = offsets.copy()
+        spectrum = np.array(spectrum)
+        if pixel_offsets[0] > pixel_offsets[-1]:
+            pixel_offsets = np.flip(pixel_offsets)
+            spectrum = np.flip(spectrum)
+        try:
+            cubic_spline = CubicSpline(pixel_offsets, spectrum)
+            offsets_interp = np.linspace(pixel_offsets[0], pixel_offsets[-1], n_interp)
+            spectrum_interp = cubic_spline(offsets_interp)
+
+            Fit_1, _ = curve_fit(Step_1_Fit, offsets_interp, spectrum_interp, p0=p0_corr, bounds=(lb_corr, ub_corr))
+            Water_Fit = Lorentzian(offsets_interp, Fit_1[0], Fit_1[1], Fit_1[2])
+            b0_shift = offsets_interp[np.argmax(Water_Fit)]
+        except Exception:
+            b0_shift = np.nan
+        b0_shifts.append(b0_shift)
+    return b0_shifts

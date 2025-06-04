@@ -58,17 +58,23 @@ def plot_wassr(image, session_state):
         y_min, y_max = max(np.min(y_indices) - 20, 0), min(np.max(y_indices) + 20, lv_mask.shape[0])
         # Use AHA segments for actual plotting
         segment_masks = session_state.user_geometry["aha"]
+        fits = session_state.processed_data['wassr_fits']
+        # Fill in b0_image using the segment masks
+        for label, coord_list in segment_masks.items():
+            data = fits[label]
+            for idx, (i, j) in enumerate(coord_list):
+                b0_image[i, j] = data[idx]
     else:
-        segment_masks = session_state.user_geometry["masks"]
+        masks = session_state.user_geometry["masks"]
         x_min, x_max = 0, image.shape[1]
         y_min, y_max = 0, image.shape[0]
-    fits = session_state.processed_data['wassr_fits']
-    # Fill in b0_image using the segment masks
-    for label, coord_list in segment_masks.items():
-        data = fits[label]
-        for idx, (i, j) in enumerate(coord_list):
-            b0_image[i, j] = data[idx]
-    # Set zero values to be fully transparent
+        fits = session_state.processed_data['wassr_fits']
+        for label, mask in masks.items():
+            data = fits[label]
+            mask_indices = np.argwhere(mask)
+            for idx, (i, j) in enumerate(mask_indices):
+                b0_image[i, j] = data[idx]
+
     transparent_b0 = np.ma.masked_where(b0_image == 0, b0_image)
     # Plot
     fig, ax = plt.subplots(1, 1, figsize=(6, 6))
