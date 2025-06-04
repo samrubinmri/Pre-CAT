@@ -8,7 +8,7 @@ Created on Tue Jan  7 12:35:44 2025
 
 import streamlit as st
 import os
-from scripts import load_study, draw_rois, cest_fitting, plotting, wassr
+from scripts import load_study, draw_rois, cest_fitting, plotting, plotting_wassr
 from custom import st_functions
 
 site_icon = "./custom/icons/ksp.ico"
@@ -176,6 +176,8 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     unsafe_allow_html=True,
                     )
                     smoothing_filter = True
+                    if "CEST" in selection and cest_type == "Radial":
+                        moco = st.toggle('Motion correction', help="Correct bulk motion by discarding spokes based on changes in center k-space magnitude.")
                     pixelwise = st.toggle(
                         'Pixelwise mapping', help="Accuracy is highly dependent on field homogeneity.")
                     if pixelwise:
@@ -329,6 +331,8 @@ if st.session_state.is_submitted:
     st.session_state.processing_active = True
     with st.expander("Process data", expanded = not st.session_state.is_processed):
         # Set new session vars
+        if 'cest_rot_exists' not in st.session_state:
+            st.session_state['cest_rot_exists'] = False
         if "recon" not in st.session_state:
             st.session_state.recon = {}
             if 'CEST' in st.session_state.submitted_data['selection']:
@@ -355,20 +359,35 @@ if st.session_state.is_submitted:
                         "fits":None,
                         "maps":None}
             if 'WASSR' in st.session_state.submitted_data['selection']:
+                st.session_state.processed_data["wassr_fits"] = None
                 st.session_state.processed_data["b0_map"] = None
+                st.session_state.processed_data["b0_boxplot"] = None
             if 'DAMB1' in st.session_state.submitted_data['selection']:
                 st.session_state.processed_data["b1_map"] = None
         if "loading_done" not in st.session_state:
-            st.session_state.loading_done = False
+            st.session_state.loading_done = {}
+            if 'CEST' in st.session_state.submitted_data['selection']:
+                st.session_state.loading_done["cest"] = False
+            if 'WASSR' in st.session_state.submitted_data['selection']:
+                st.session_state.loading_done["wassr"] = False
+            if 'DAMB1' in st.session_state.submitted_data['selection']:
+                st.session_state.loading_done["damb1"] = False
         if "rot_done" not in st.session_state:
             st.session_state.rot_done = False
         if "drift_done" not in st.session_state:
-            st.session_state.drift_done = False
+            st.session_state.drift_done = {}
+            if 'CEST' in st.session_state.submitted_data['selection']:
+                st.session_state.drift_done["cest"] = False
+            if 'WASSR' in st.session_state.submitted_data['selection']:
+                st.session_state.drift_done["wassr"] = False
+            if 'DAMB1' in st.session_state.submitted_data['selection']:
+                st.session_state.drift_done["damb1"] = False
         if "rois_done" not in st.session_state:
             st.session_state.rois_done = False
         # Retrieve submitted data
         submitted_data = st.session_state.submitted_data
-        # Logic for each experiment type
+        ##--Logic for each experiment type--##
+        ## CEST processing
         if "CEST" in submitted_data["selection"]:
             cest_path = submitted_data.get("cest_path")  # Retrieve cest_path from submitted data
             cest_type = submitted_data.get("cest_type")  # Retrieve cest_type from submitted data
@@ -377,7 +396,7 @@ if st.session_state.is_submitted:
                 if st.session_state.recon['cest'] is None:
                     data_cest = load_study.recon_bruker(cest_path, folder_path)
                     st.session_state.recon['cest'] = data_cest
-                    st.session_state.loading_done = True
+                    st.session_state.loading_done['cest'] = True
             elif cest_type == 'Radial':
                 if 'rotation_stage' not in st.session_state:
                     st.session_state['rotation_stage'] = 'select_rotation'  # Stages: 'select_rotation', 'confirm_rotation', 'finalized'
@@ -390,15 +409,16 @@ if st.session_state.is_submitted:
                     st.session_state.recon['cest'] = data_cest
                 if st.session_state.recon['cest'] is not None:
                     if st.session_state.rot_done == False:
-                        load_study.rotate_imgs(st.session_state)
+                        load_study.rotate_imgs(st.session_state, 'cest')
                     elif st.session_state.rot_done == True:
                         st.success("Rotation finalized!")
-                        st.session_state.loading_done = True
-            if st.session_state.loading_done == True:
-                if st.session_state.drift_done == False:
-                    load_study.thermal_drift(st.session_state)
-                elif st.session_state.drift_done == True:
-                    st.success("Thermal drift correction complete!")
+                        st.session_state.loading_done['cest'] = True
+                        st.session_state['cest_rot_exists'] = True
+            if st.session_state.loading_done['cest'] == True:
+                if st.session_state.drift_done['cest'] == False:
+                    load_study.thermal_drift(st.session_state, 'cest')
+                elif st.session_state.drift_done['cest'] == True:
+                    st.success("Thermal drift correction (CEST) complete!")
                 if st.session_state.rois_done == False:
                     if st.session_state.reference is not None:
                         reference = st.session_state.reference
@@ -424,15 +444,107 @@ if st.session_state.is_submitted:
                         cest_fitting.calc_spectra_pixelwise(imgs, st.session_state)
                         st.session_state.processed_data['pixelwise']['fits'] = cest_fitting.per_pixel(st.session_state)
                     st.success("Fitting complete!")
-                    if "WASSR" not in submitted_data["selection"] and "DAMB1" not in submitted_data["selection"]:
-                        st.session_state.processing_active = False
-                        st.session_state.is_processed = True
-                        st.session_state.display_data = True
+        ## WASSR processing
+        if "WASSR" in submitted_data["selection"] and (
+        "CEST" not in submitted_data["selection"] or 
+        (st.session_state.loading_done.get("cest") and 
+        st.session_state.drift_done["cest"] and 
+        st.session_state.rois_done and 
+        st.session_state.processed_data.get("fits") is not None)):
+            wassr_path = submitted_data.get("wassr_path")  
+            wassr_type = submitted_data.get("wassr_type")  
+            folder_path = submitted_data["folder_path"]
+            if wassr_type == 'Rectilinear':
+                if st.session_state.recon['wassr'] is None:
+                    data_wassr = load_study.recon_bruker(wassr_path, folder_path)
+                    st.session_state.recon['wassr'] = data_wassr
+                    st.session_state.loading_done['wassr'] = True
+            elif wassr_type == 'Radial':
+                if 'rotation_stage' not in st.session_state:
+                    st.session_state['rotation_stage'] = 'select_rotation'  # Stages: 'select_rotation', 'confirm_rotation', 'finalized'
+                if 'selected_rotation' not in st.session_state:
+                    st.session_state['selected_rotation'] = 0
+                if 'rotated_imgs' not in st.session_state:
+                    st.session_state['rotated_imgs'] = None
+                if 'wassr_rot_exists' not in st.session_state:
+                    st.session_state['wassr_rot_exists'] = False
+                if st.session_state.recon['wassr'] is None:
+                    data_wassr = load_study.recon_bart(wassr_path, folder_path)
+                    st.session_state.recon['wassr'] = data_wassr
+                if st.session_state.recon['wassr'] is not None:
+                    if st.session_state['cest_rot_exists'] == False and st.session_state.rot_done == False:
+                        load_study.rotate_imgs(st.session_state, 'wassr')
+                    elif st.session_state.rot_done == True and st.session_state['cest_rot_exists'] == False:
+                        st.session_state['wassr_rot_exists'] = True
+                        st.session_state.loading_done['wassr'] = True
+                        st.success("Rotation finalized!")
+                    elif st.session_state['cest_rot_exists'] == True:
+                        load_study.quick_rot(st.session_state, 'wassr')
+                        st.session_state.loading_done['wassr'] = True
+            if st.session_state.loading_done['wassr'] == True:
+                if st.session_state.drift_done['wassr'] == False:
+                    load_study.thermal_drift(st.session_state, 'wassr')
+                elif st.session_state.drift_done['wassr'] == True:
+                    st.success("Thermal drift correction (WASSR) complete!")
+            if st.session_state.rois_done == False and st.session_state.drift_done['wassr'] == True:
+                if st.session_state.reference is not None:
+                    reference = st.session_state.reference
+                else:
+                    reference = st.session_state.recon['wassr']
+                if st.session_state.submitted_data['organ'] == 'Cardiac':
+                    draw_rois.cardiac_roi(st.session_state, reference, st.session_state.recon['wassr'])
+                if st.session_state.submitted_data['organ'] == 'Other':
+                    draw_rois.draw_rois(st.session_state, reference, st.session_state.recon['wassr'])
+            elif st.session_state.rois_done == True:
+                if st.session_state.user_geometry['masks'] is None:
+                    image = st.session_state.recon['wassr']['m0']
+                    rois = st.session_state.user_geometry["rois"]
+                    st.session_state.user_geometry['masks'] = draw_rois.convert_rois_to_masks(image, rois)
+                    masks = st.session_state.user_geometry['masks']
+                    if st.session_state.submitted_data['organ'] == 'Cardiac':
+                        st.session_state.user_geometry['masks']['lv'] = draw_rois.calc_lv_mask(masks)
+                        draw_rois.aha_segmentation(image, st.session_state)
+                imgs = st.session_state.recon['wassr']['imgs']
+                cest_fitting.fit_wassr(imgs, st.session_state)
+        # DAMB1 processing
+        if "DAMB1" in submitted_data["selection"]:
+            if st.session_state.rot_done == True:
+                load_study.quick_rot(st.session_state, 'damb1')
+            else:
+                load_study.rotate_imgs(st.session_state, 'damb1')
+    # Final check: Only mark as processed if all selected types are done
+    required_keys = []
+    if 'CEST' in submitted_data['selection']:
+        required_keys.extend([
+            st.session_state.drift_done.get('cest', False),
+            st.session_state.loading_done.get('cest', False),
+            st.session_state.processed_data.get('fits') is not None,
+        ])
+        if submitted_data['pixelwise']:
+            required_keys.append(st.session_state.processed_data['pixelwise']['fits'] is not None)
+
+    if 'WASSR' in submitted_data['selection']:
+        required_keys.extend([
+            st.session_state.recon.get('wassr') is not None,
+            st.session_state.processed_data.get('wassr_fits') is not None
+        ])
+
+    if 'DAMB1' in submitted_data['selection']:
+        required_keys.append(
+            st.session_state.processed_data.get('b1_map') is not None
+        )
+
+    # If all conditions are True, finalize processing
+    if all(required_keys) and st.session_state.rois_done:
+        st.session_state.processing_active = False
+        st.session_state.is_processed = True
+        st.session_state.display_data = True
                     
 if st.session_state.display_data == True:      
     save_path = st.session_state.submitted_data["save_path"]             
     with st.expander('Display and save results', expanded = st.session_state.display_data):
         if "CEST" in submitted_data["selection"]:
+            st.header('CEST')
             image = st.session_state.recon['cest']['m0']
             # if st.session_state.submitted_data['organ'] == 'Cardiac':
                 # plotting.show_segmentation(image, st.session_state)
@@ -448,7 +560,13 @@ if st.session_state.display_data == True:
                     st.warning("High RMSE in anterior segment! Recommend examining and/or excluding this dataset!")
                 st.write(rmse)
             st.success("Images, plots, and raw data saved at **%s**" % save_path)
-        #if "WASSR" in submitted_data["selection"]:
-            
+        if "WASSR" in submitted_data["selection"]:
+            st.header('WASSR')
+            if "CEST" not in submitted_data["selection"]:
+                image = st.session_state.recon['wassr']['m0']
+            plotting_wassr.plot_wassr(image, st.session_state)
+            if st.session_state.submitted_data['organ'] == 'Cardiac': 
+                plotting_wassr.plot_wassr_aha(st.session_state)
+
 if st.button("Reset"):
     st.error("To reset and resubmit, please refresh the page.")

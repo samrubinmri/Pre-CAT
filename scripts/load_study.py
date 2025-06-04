@@ -59,8 +59,8 @@ def recon_bart(num, directory):
     study = {"imgs": imgs, "offsets": offsets}
     return study
 
-def rotate_imgs(session_state):
-    imgs = session_state.recon['cest']['imgs']  # Assuming the CEST data is in the first index
+def rotate_imgs(session_state, exp_type):
+    imgs = session_state.recon[exp_type]['imgs']
     # Stage 1: Select rotation
     if session_state['rotation_stage'] == 'select_rotation':
         fig = plt.figure()
@@ -92,8 +92,12 @@ def rotate_imgs(session_state):
                 session_state.rot_done = True
                 # Save the rotated images to the study
                 imgs = session_state['rotated_imgs']
-                session_state.recon['cest']['imgs'] = imgs  # Finalize the rotation and save the rotated images
-                # No need to return the study here; this step can be handled elsewhere in the flow.
+                if exp_type == 'cest':
+                    session_state.recon['cest']['imgs'] = imgs 
+                elif exp_type == 'wassr':
+                    session_state.recon['wassr']['imgs'] = imgs
+                elif exp_type == 'damb1':
+                    session_state.recon['damb1']['imgs'] = imgs
                 st.write("Rotation finalized!")
                 st.rerun()
             elif rotation_ok == 'No':
@@ -104,10 +108,18 @@ def rotate_imgs(session_state):
                 st.rerun()
                 # Re-run the step to allow the user to select a new rotation without rerunning the entire app.
 
-def thermal_drift(session_state):
+def quick_rot(session_state, exp_type):
+    if exp_type == 'wassr':
+        imgs = session_state.recon['wassr']['imgs']
+        session_state.recon['wassr']['imgs'] = np.rot90(imgs, k=session_state['selected_rotation'], axes=(0,1))
+    if exp_type == 'damb1':
+        imgs = session_state.recon['damb1']['imgs']
+        session_state.recon['damb1']['imgs'] = np.rot90(imgs, k=session_state['selected_rotation'], axes=(0,1))
+
+def thermal_drift(session_state, exp_type):
     THRESHOLD_PPM = 15
-    images = session_state.recon['cest']['imgs']
-    offsets = session_state.recon['cest']['offsets']
+    images = session_state.recon[exp_type]['imgs']
+    offsets = session_state.recon[exp_type]['offsets']
     # Find reference index
     ref_index = np.where(offsets > THRESHOLD_PPM)[0]
     # Apply normalization
@@ -129,16 +141,16 @@ def thermal_drift(session_state):
         m0_interp = interpn(points, m0, values)
         images = np.nan_to_num(images/m0_interp)
         
-        session_state.recon['cest']['imgs'] = images
-        session_state.recon['cest']['offsets'] = offsets
-        session_state.recon['cest']['m0'] = m0[:, :, 0]
-        sesson_state.recon['cest']['m0_final'] = m0[:, :, -1]
-        session_state.recon['cest']['m0_interp'] = m0_interp
-        session_state.drift_done = True
+        session_state.recon[exp_type]['imgs'] = images
+        session_state.recon[exp_type]['offsets'] = offsets
+        session_state.recon[exp_type]['m0'] = m0[:, :, 0]
+        session_state.recon[exp_type]['m0_final'] = m0[:, :, -1]
+        session_state.recon[exp_type]['m0_interp'] = m0_interp
+        session_state.drift_done[exp_type] = True
         
     else:
         images = np.nan_to_num(images/m0)
-        session_state.recon['cest']['imgs'] = images
-        session_state.recon['cest']['offsets'] = offsets
-        session_state.recon['cest']['m0'] = np.squeeze(m0[:, :, 0])
-        session_state.drift_done = True
+        session_state.recon[exp_type]['imgs'] = images
+        session_state.recon[exp_type]['offsets'] = offsets
+        session_state.recon[exp_type]['m0'] = np.squeeze(m0[:, :, 0])
+        session_state.drift_done[exp_type] = True

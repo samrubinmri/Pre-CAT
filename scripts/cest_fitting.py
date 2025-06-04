@@ -291,107 +291,6 @@ def _process_spectrum(offsets, spectrum, n_interp, custom_contrasts=None):
     return {'Fit_Params': fit_parameters, 'Data_Dict': data_dict,
             'Contrasts': contrasts, 'Residuals': spectrum_region - total_fit_region, 'RMSE': rmse}
 
-
-# def _process_spectrum(offsets, spectrum, n_interp, custom_contrasts = None):
-#     if custom_contrasts is None:
-#         custom_contrasts = ['Amide', 'Creatine', 'NOE (-3.5 ppm)']
-#     # Define fitting parameters dynamically
-#     contrast_params = {
-#         'NOE (-3.5 ppm)': (p0_noe, lb_noe, ub_noe),
-#         'Creatine': (p0_creatine, lb_creatine, ub_creatine),
-#         'Amide': (p0_amide, lb_amide, ub_amide),
-#         'Amine': (p0_amine, lb_amine, ub_amine),
-#         'Hydroxyl': (p0_hydroxyl, lb_hydroxyl, ub_hydroxyl)
-#     }
-#     p0_2, lb_2, ub_2 = [], [], []
-#     for contrast in custom_contrasts:
-#             p0_2 += contrast_params[contrast][0]
-#             lb_2 += contrast_params[contrast][1]
-#             ub_2 += contrast_params[contrast][2]
-#     def Step_2_Fit(x, *params):
-#         fit_sum = np.zeros_like(x)
-#         index = 0
-#         for contrast in custom_contrasts:
-#             fit_sum += Lorentzian(x, params[index], params[index+1], params[index+2])
-#             index += 3
-#         return fit_sum
-#     try:
-#         if offsets[0] > 0:
-#             offsets = np.flip(offsets)
-#             spectrum = np.flip(spectrum)
-#         # Step 1 fitting
-#         fit_1, _ = curve_fit(Step_1_Fit, offsets, spectrum, p0=p0_corr, bounds=(lb_corr, ub_corr), **options)
-#         correction = fit_1[2]
-#         offsets_corrected = offsets - correction
-#         # Exception for OH
-#         if 'Hydroxyl' in custom_contrasts:
-#             cutoffs[2] = 0.4
-#         else:
-#             cutoffs[2] = 1.4
-#         # Crop offsets and spectrum
-#         condition = (offsets_corrected <= cutoffs[0]) | (offsets_corrected >= cutoffs[3]) | \
-#                     ((offsets_corrected >= cutoffs[1]) & (offsets_corrected <= cutoffs[2]))
-#         condition_rmse = ((offsets_corrected <= -1.4) & (offsets_corrected >= -4)) | \
-#                          ((offsets_corrected >= 1.4) & (offsets_corrected <= 4))
-#         offsets_cropped = offsets_corrected[condition]
-#         spectrum_cropped = spectrum[condition]
-#         # Interpolated frequency axis
-#         offsets_interp = np.linspace(offsets_corrected[0], offsets_corrected[-1], n_interp)
-#         # Fit Step 1
-#         fit_1, _ = curve_fit(Step_1_Fit, offsets_cropped, spectrum_cropped, p0=p0_1, bounds=(lb_1, ub_1), **options)
-#         water_fit = Lorentzian(offsets_interp, fit_1[0], fit_1[1], fit_1[2])
-#         mt_fit = Lorentzian(offsets_interp, fit_1[3], fit_1[4], fit_1[5])
-#         # Background and Lorentzian difference
-#         background = Lorentzian(offsets_corrected, fit_1[0], fit_1[1], fit_1[2]) + \
-#                      Lorentzian(offsets_corrected, fit_1[3], fit_1[4], fit_1[5])
-#         lorentzian_difference = 1 - (spectrum + background)
-#         # RMSE for Step 1
-#         step_1_fit_values = Step_1_Fit(offsets_corrected, *fit_1)
-#         step_1_rmse = np.sqrt(mean_squared_error(spectrum, step_1_fit_values))
-#         # Step 2 fitting
-#         fit_2, _ = curve_fit(Step_2_Fit, offsets_corrected, lorentzian_difference, p0=p0_2, bounds=(lb_2, ub_2), **options)
-#         fit_curves = {}
-#         index = 0
-#         for contrast in custom_contrasts:
-#             fit_curves[contrast] = Lorentzian(offsets_interp, fit_2[index], fit_2[index+1], fit_2[index+2])
-#             index += 3
-#         # RMSE for Step 2
-#         step_2_fit_values = Step_2_Fit(offsets_corrected, *fit_2)
-#         step_2_rmse = np.sqrt(mean_squared_error(lorentzian_difference, step_2_fit_values))
-#         # Total fit and final RMSE
-#         total_fit = step_1_fit_values - step_2_fit_values
-#         spectrum_region = spectrum[condition_rmse]
-#         total_fit_region = total_fit[condition_rmse]
-#         rmse = np.sqrt(mean_squared_error(spectrum_region, total_fit_region))
-#         # Flip for NMR convention
-#         offsets_interp = np.flip(offsets_interp)
-#         water_fit = np.flip(water_fit)
-#         mt_fit = np.flip(mt_fit)
-#         fit_curves_named = {}
-#         for contrast in fit_curves:
-#             fit_curves_named[f"{contrast}_Fit"] = np.flip(fit_curves[contrast])
-
-#         contrasts = {'Water': 100 * fit_1[0], 'MT': 100 * fit_1[3]}
-#         for i, contrast in enumerate(custom_contrasts):
-#             contrasts[contrast] = 100 * fit_2[i * 3]
-#         # Prepare result
-#         data_dict = {'Zspec': spectrum, 'Offsets': offsets, 'Offsets_Corrected': offsets_corrected,
-#                            'Offsets_Interp': offsets_interp, 'Water_Fit': water_fit, 'MT_Fit': mt_fit,
-#                            **fit_curves_named,'Lorentzian_Difference': lorentzian_difference}
-#         fit_parameters = [fit_1, fit_2]
-#     except RuntimeError:
-#         fit_parameters = [np.zeros(len(p0_1)), np.zeros(len(p0_2))]
-#         contrasts = {key: 0 for key in ['Water', 'MT'] + custom_contrasts}
-#         data_dict = {'Zspec': spectrum, 'Offsets': offsets, 'Offsets_Corrected': offsets_corrected,
-#                      'Offsets_Interp': offsets_interp, 'Water_Fit': np.zeros(n_interp), 'MT_Fit': np.zeros(n_interp),
-#                      'Lorentzian_Difference': np.zeros(n_interp), **{key: np.zeros(n_interp) for key in custom_contrasts}}
-#         spectrum_region = np.array([])
-#         total_fit_region = np.array([])
-#         rmse = np.inf
-    
-#     return {'Fit_Params': fit_parameters, 'Data_Dict': data_dict,
-#             'Contrasts': contrasts, 'Residuals': spectrum_region - total_fit_region, 'RMSE': rmse}
-
 def per_pixel(session_state):
     fits = {}
     contrasts = session_state.custom_contrasts
@@ -418,23 +317,57 @@ def per_pixel(session_state):
     progress_bar.empty()
     return fits
 
-def wassr(offsets, spectra):
-    pixelwise = []
-    n_interp = 1000  # Number of points for interpolation
-    for spectrum in spectra:
-        if offsets[0] > 0:
-            offsets = np.flip(offsets)
-            spectrum = np.flip(spectrum)
-        # Interpolate offsets and spectrum using cubic spline
-        cubic_spline = CubicSpline(offsets, spectrum)
-        offsets_interp = np.linspace(offsets[0], offsets[-1], n_interp)
-        spectrum_interp = cubic_spline(offsets_interp)
-        # Fit for corrections
-        Fit_1, _ = curve_fit(Step_1_Fit, offsets_interp, spectrum_interp, p0=p0_corr, bounds=(lb_corr, ub_corr))
-        # Calculate water and MT fits from parameters
-        Water_Fit = Lorentzian(offsets_interp, Fit_1[0], Fit_1[1], Fit_1[2])
-        Mt_Fit = Lorentzian(offsets_interp, Fit_1[3], Fit_1[4], Fit_1[5])
-        # B0 correction: find offset corresponding to the peak
-        b0_shift = offsets_interp[np.argmax(Water_Fit + Mt_Fit)]
-        pixelwise.append(b0_shift)
-    return pixelwise
+def fit_wassr(imgs, session_state):
+    n_interp = 1000
+    organ = session_state.submitted_data['organ']
+    offsets = session_state.recon['wassr']['offsets']
+    pixelwise = {}
+
+    # Select which masks to use
+    if organ == 'Cardiac':
+        # Use AHA segmentation
+        aha_segments = session_state.user_geometry['aha']  # dict: {label: list of (i,j)}
+        labels_coords = aha_segments.items()
+    else:
+        # Use provided masks for other organs
+        labels_coords = session_state.user_geometry['masks'].items()
+
+    for label, coord_list in labels_coords:
+        spectra = []
+        for coord in coord_list:
+            spectrum = []
+            for i in range(imgs.shape[2]):
+                spectrum.append(imgs[coord[0], coord[1], i])
+            spectra.append(spectrum)
+
+        b0_shifts = []
+        for spectrum in spectra:
+            pixel_offsets = offsets.copy()
+            spectrum = np.array(spectrum)
+
+            # Flip if needed
+            if pixel_offsets[0] > pixel_offsets[-1]:
+                pixel_offsets = np.flip(pixel_offsets)
+                spectrum = np.flip(spectrum)
+
+            try:
+                # Interpolate
+                cubic_spline = CubicSpline(pixel_offsets, spectrum)
+                offsets_interp = np.linspace(pixel_offsets[0], pixel_offsets[-1], n_interp)
+                spectrum_interp = cubic_spline(offsets_interp)
+
+                # Fit
+                Fit_1, _ = curve_fit(Step_1_Fit, offsets_interp, spectrum_interp, p0=p0_corr, bounds=(lb_corr, ub_corr))
+                Water_Fit = Lorentzian(offsets_interp, Fit_1[0], Fit_1[1], Fit_1[2])
+
+                # B0 shift
+                b0_shift = offsets_interp[np.argmax(Water_Fit)]
+
+            except Exception:
+                b0_shift = np.nan
+
+            b0_shifts.append(b0_shift)
+
+        pixelwise[label] = b0_shifts
+
+    session_state.processed_data['wassr_fits'] = pixelwise
