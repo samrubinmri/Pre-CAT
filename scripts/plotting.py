@@ -35,7 +35,7 @@ def pixelwise_mapping(image, session_state):
     # Initialize empty contrast images for all ROIs combined
     contrasts = session_state.custom_contrasts
     if contrasts is None:
-        contrasts = ['Amide', 'Creatine', 'NOE (-3.5 ppm)']
+        contrasts = ['Amide', 'Creatine', 'NOE (-3.5 ppm)', 'NOE (-1.6 ppm)']
     contrasts = ['MT'] + contrasts
     contrast_images = {contrast: np.full_like(image, np.nan, dtype=float)
                        for contrast in contrasts}
@@ -202,12 +202,12 @@ def plot_zspec(session_state):
                 contrast_colors = {
                     'Water_Fit': '#0072BD',
                     'MT_Fit': '#EDB120',
-                    'NOE (-3.5 ppm)_Fit': '#77AC30',
+                    'NOE (-3.5 ppm)_Fit': '#A6761D',
                     'Amide_Fit': '#7E2F8E',
-                    'Amine_Fit': '#FF6700',  
-                    'Creatine_Fit': '#A2142F',  
+                    'Amine_Fit': '#F8961E',  
+                    'Creatine_Fit': '#6F1D1B',  
                     'Hydroxyl_Fit': '#4DBEEE',
-                    'NOE (-1.6 ppm)_Fit':"#e144c4"    
+                    'NOE (-1.6 ppm)_Fit':"#E144C4"    
                 }
                 # Get a color cycle for any remaining fits
                 color_cycle = itertools.cycle(plt.get_cmap('viridis').colors)  # Change colormap if needed
@@ -245,6 +245,7 @@ def plot_zspec(session_state):
                 fig, ax = plt.subplots(figsize=(12, 10))
                 ax.fill_between(Offsets, Lorentzian_Difference * 100, 0, color='gray', alpha=0.5, label="Raw")
                 total_fit = np.zeros_like(next(iter(Fits.values())))
+                total_fit_noe = np.zeros_like(next(iter(Fits.values())))
                 # Automatically plot available fits with assigned colors
                 for contrast in data_dict.keys():
                     if 'Fit' in contrast and contrast not in ['Water_Fit', 'MT_Fit']:
@@ -252,7 +253,10 @@ def plot_zspec(session_state):
                         ax.plot(OffsetsInterp, data_dict[contrast] * 100, linewidth=4, color=color, label=contrast.replace("_Fit", ""))
                         if 'NOE' not in contrast:
                             total_fit += data_dict[contrast] * 100
-                ax.plot(OffsetsInterp, total_fit, linewidth=4, color='#D95319', label="Fit")
+                        else:
+                            total_fit_noe += data_dict[contrast] * 100
+                ax.plot(OffsetsInterp, total_fit, linewidth=4, color='#D95319', label="CEST Fit")
+                ax.plot(OffsetsInterp, total_fit_noe, linewidth=4, color='#00876C', label="rNOE Fit")
                 ax.legend(fontsize=16)
                 ax.invert_xaxis()
                 ax.tick_params(axis='both', which='major', labelsize=16)

@@ -261,7 +261,6 @@ def cardiac_roi(session_state, data, cest):
     # Get image data for ROI
     if isinstance(data, dict) and 'm0' in data:
         m0 = data['m0']  # Replace with your actual image data (numpy array)
-        m0_final = data['m0_final']
     else:
         m0 = data.squeeze()
         zoom_img = cest['m0']
