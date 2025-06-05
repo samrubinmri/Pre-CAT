@@ -10,9 +10,13 @@ import streamlit as st
 import os
 from scripts import load_study, draw_rois, cest_fitting, plotting, plotting_wassr, plotting_damb1
 from custom import st_functions
+from pathlib import Path
 
 site_icon = "./custom/icons/ksp.ico"
+loading_gif_path = Path("custom/icons/loading.gif")
 st.set_page_config(page_title="Pre-CAT", initial_sidebar_state="expanded", page_icon = site_icon)
+if loading_gif_path.exists():
+    st_functions.inject_custom_loader(loading_gif_path)
 
 if "is_submitted" not in st.session_state:
     st.session_state.is_submitted = False
@@ -177,7 +181,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     )
                     smoothing_filter = True
                     if "CEST" in selection and cest_type == "Radial":
-                        moco = st.toggle('Motion correction', help="Correct bulk motion by discarding spokes based on changes in center k-space magnitude.")
+                        moco = st.toggle('Motion correction', help="Correct bulk motion by discarding spokes based on changes in center *k*-space magnitude.")
                     pixelwise = st.toggle(
                         'Pixelwise mapping', help="Accuracy is highly dependent on field homogeneity.")
                     if pixelwise:
@@ -245,6 +249,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     all_fields_filled = False  # WASSR path is required
                 if wassr_path:
                     wassr_type = st.radio('WASSR acquisition type', ["Radial", "Rectilinear"], horizontal=True)
+                    full_b0_mapping = st.toggle('Full B0 mapping', value=True, help="Fit B0 map for the entire image. Slower, but allows for full map visualization.") 
                     if not wassr_type:
                         all_fields_filled = False  # WASSR acquisition type is required
                     wassr_full_path = os.path.join(folder_path, wassr_path)
@@ -360,6 +365,7 @@ if st.session_state.is_submitted:
                         "maps":None}
             if 'WASSR' in st.session_state.submitted_data['selection']:
                 st.session_state.processed_data["wassr_fits"] = None
+                st.session_state.processed_data["wassr_full_map"] = None
             if 'DAMB1' in st.session_state.submitted_data['selection']:
                 st.session_state.processed_data["b1_fits"] = None
         if "loading_done" not in st.session_state:
@@ -463,7 +469,7 @@ if st.session_state.is_submitted:
                     data_wassr = load_study.recon_bart(wassr_path, folder_path)
                     st.session_state.recon['wassr'] = data_wassr
             if 'rotation_stage' not in st.session_state:
-                st.session_state['rotation_stage'] = 'select_rotation'  # Stages: 'select_rotation', 'confirm_rotation', 'finalized'
+                st.session_state['rotation_stage'] = 'select_rotation'
             if 'selected_rotation' not in st.session_state:
                 st.session_state['selected_rotation'] = 0
             if 'rotated_imgs' not in st.session_state:
@@ -503,10 +509,13 @@ if st.session_state.is_submitted:
                     if st.session_state.submitted_data['organ'] == 'Cardiac':
                         st.session_state.user_geometry['masks']['lv'] = draw_rois.calc_lv_mask(masks)
                         draw_rois.aha_segmentation(image, st.session_state)
-                # Only run fitting if it hasn't been done before
+                # Conditional fitting based on the toggle
                 if st.session_state.processed_data.get('wassr_fits') is None:
                     imgs = st.session_state.recon['wassr']['imgs']
-                    st.session_state.processed_data['wassr_fits'] = cest_fitting.fit_wassr(imgs, st.session_state)
+                    if st.session_state.submitted_data.get('full_b0_mapping', True): # Default to True if not set
+                        st.session_state.processed_data['wassr_fits'], st.session_state.processed_data['wassr_full_map'] = cest_fitting.fit_wassr_full(imgs, st.session_state)
+                    else:
+                        st.session_state.processed_data['wassr_fits'] = cest_fitting.fit_wassr_masked(imgs, st.session_state)
                     st.success("Fitting complete (WASSR)!")
         ## DAMB1 processing
         cest_selected = "CEST" in submitted_data["selection"]

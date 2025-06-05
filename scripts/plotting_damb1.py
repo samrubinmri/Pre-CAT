@@ -18,7 +18,7 @@ def plot_damb1(session_state):
     b1_fits = session_state.processed_data['b1_fits']
     if 'WASSR' and 'CEST' not in session_state.submitted_data['selection']:
         fig, ax = plt.subplots(1, 1, figsize=(8, 8))    
-        im = ax.imshow(b1_fits, cmap='plasma')
+        im = ax.imshow(b1_fits, cmap='RdBu')
         ax.set_title('$B_1$ Map', fontsize=22, fontname='Arial', weight='bold')
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -50,12 +50,12 @@ def plot_damb1(session_state):
         fig, axs = plt.subplots(1, 2, figsize=(12, 6))
         fig.suptitle('$B_1$ Map Visualization', fontsize=26, fontname='Arial', weight='bold')
 
-        im0 = axs[0].imshow(b1_fits, cmap='plasma')
+        im0 = axs[0].imshow(b1_fits, cmap='RdBu')
         axs[0].set_title('Raw $B_1$', fontsize=20, fontname='Arial', weight='bold')
         axs[0].axis('off')
 
         axs[1].imshow(ref_img[y_min:y_max, x_min:x_max], cmap='gray')
-        im1 = axs[1].imshow(transparent_b1[y_min:y_max, x_min:x_max], cmap='plasma')
+        im1 = axs[1].imshow(transparent_b1[y_min:y_max, x_min:x_max], cmap='RdBu')
         axs[1].set_title('Interpolated on Reference', fontsize=20, fontname='Arial', weight='bold')
         axs[1].axis('off')
 
