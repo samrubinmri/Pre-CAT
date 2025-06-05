@@ -81,12 +81,12 @@ def plot_wassr(image, session_state):
         vmin = np.nanmin(transparent_b0_overlay)
         vmax = np.nanmax(transparent_b0_overlay)
         
-        axs[0].imshow(b0_full_map, cmap='plasma', vmin=vmin, vmax=vmax)
+        axs[0].imshow(b0_full_map, cmap='BrBG', vmin=vmin, vmax=vmax)
         axs[0].set_title('Full B$_0$ Map', fontsize=20, fontname='Arial', weight='bold')
         axs[0].axis('off')
         
         axs[1].imshow(image[y_min:y_max, x_min:x_max], cmap='gray')
-        im1 = axs[1].imshow(transparent_b0_overlay[y_min:y_max, x_min:x_max], cmap='plasma', alpha=0.9, vmin=vmin, vmax=vmax)
+        im1 = axs[1].imshow(transparent_b0_overlay[y_min:y_max, x_min:x_max], cmap='BrBG', alpha=0.9, vmin=vmin, vmax=vmax)
         axs[1].set_title('Masked B$_0$ on Reference', fontsize=20, fontname='Arial', weight='bold')
         axs[1].axis('off')
 
@@ -126,7 +126,7 @@ def plot_wassr(image, session_state):
         transparent_b0 = np.ma.masked_where(b0_image == 0, b0_image)
         fig, ax = plt.subplots(1, 1, figsize=(6, 6))
         ax.imshow(image[y_min:y_max, x_min:x_max], cmap='gray')
-        im = ax.imshow(transparent_b0[y_min:y_max, x_min:x_max], cmap='plasma', alpha=0.9)
+        im = ax.imshow(transparent_b0[y_min:y_max, x_min:x_max], cmap='BrBG', alpha=0.9)
         ax.set_title('WASSR Map', fontsize=28, fontname='Arial', weight='bold')
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)

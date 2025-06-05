@@ -320,6 +320,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                         if "WASSR" in selection: 
                             st.session_state.submitted_data['wassr_path'] = wassr_path
                             st.session_state.submitted_data['wassr_type'] = wassr_type
+                            st.session_state.submitted_data['full_b0_mapping'] = full_b0_mapping
                         if "DAMB1" in selection:
                             st.session_state.submitted_data['theta_path'] = theta_path
                             st.session_state.submitted_data['two_theta_path'] = two_theta_path
