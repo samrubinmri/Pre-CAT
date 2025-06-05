@@ -503,9 +503,11 @@ if st.session_state.is_submitted:
                     if st.session_state.submitted_data['organ'] == 'Cardiac':
                         st.session_state.user_geometry['masks']['lv'] = draw_rois.calc_lv_mask(masks)
                         draw_rois.aha_segmentation(image, st.session_state)
-                imgs = st.session_state.recon['wassr']['imgs']
-                st.session_state.processed_data['wassr_fits'] = cest_fitting.fit_wassr(imgs, st.session_state)
-                st.success("Fitting complete (WASSR)!")
+                # Only run fitting if it hasn't been done before
+                if st.session_state.processed_data.get('wassr_fits') is None:
+                    imgs = st.session_state.recon['wassr']['imgs']
+                    st.session_state.processed_data['wassr_fits'] = cest_fitting.fit_wassr(imgs, st.session_state)
+                    st.success("Fitting complete (WASSR)!")
         ## DAMB1 processing
         cest_selected = "CEST" in submitted_data["selection"]
         wassr_selected = "WASSR" in submitted_data["selection"]
@@ -536,11 +538,11 @@ if st.session_state.is_submitted:
                 st.session_state['damb1_rot_exists'] = False  
             if st.session_state.recon['damb1'] is None:
                 st.session_state.recon["damb1"] = load_study.recon_damb1(st.session_state)
-                st.session_state.loading_done['damb1'] = True
-                if wassr_selected and (st.session_state['wassr_rot_exists'] == True and st.session_state['wassr_type'] == 'Rectilinear'):
+                # The premature setting of loading_done was removed from here.
+                if wassr_selected and (st.session_state['wassr_rot_exists'] == True and st.session_state.submitted_data['wassr_type'] == 'Rectilinear'):
                     load_study.quick_rot(st.session_state, 'damb1')
                     st.session_state.loading_done['damb1'] = True
-                if cest_selected and (st.session_state['cest_rot_exists'] == True and st.session_state.submittced_data['cest_type'] == 'Rectilinear'):
+                if cest_selected and (st.session_state['cest_rot_exists'] == True and st.session_state.submitted_data['cest_type'] == 'Rectilinear'): # Corrected typo here
                     load_study.quick_rot(st.session_state, 'damb1')
                     st.session_state.loading_done['damb1'] = True
                 else:

@@ -94,26 +94,30 @@ def rotate_imgs(session_state, exp_type):
         session_state['selected_rotation'] = st.selectbox(
             'Select the number of 90-degree counterclockwise rotations to align ventral (top) to dorsal (bottom):',
             [0, 1, 2, 3],
-            index=session_state['selected_rotation']
+            index=session_state['selected_rotation'],
+            key=f"rotation_select_{exp_type}"  # Added key
         )
-        if st.button('Rotate'):
+        if st.button('Rotate', key=f"rotate_button_{exp_type}"): # Added key
             session_state['rotated_imgs'] = np.rot90(imgs, k=session_state['selected_rotation'], axes=(0, 1))
             session_state['rotation_stage'] = 'confirm_rotation'
             st.rerun()
-            # Proceed without rerun; the next steps will be automatically updated based on session state.
+            
     # Stage 2: Confirm rotation
     elif session_state['rotation_stage'] == 'confirm_rotation':
         fig, ax = plt.subplots()
-        ax.imshow(imgs[:, :, 0], cmap='gray')
+        ax.imshow(session_state['rotated_imgs'][:, :, 0], cmap='gray') # Corrected this line
         ax.axis('off')
         st.pyplot(fig)
-        rotation_ok = st.radio('Is this rotation correct?', ['Yes', 'No'], index=0)
-        if st.button('Submit Rotation'):
+        rotation_ok = st.radio(
+            'Is this rotation correct?', 
+            ['Yes', 'No'], 
+            index=0, 
+            key=f"rotation_confirm_{exp_type}" # Added key
+        )
+        if st.button('Submit Rotation', key=f"submit_rotation_{exp_type}"): # Added key
             if rotation_ok == 'Yes':
-                # Update the session state to indicate that rotation is finalized
                 session_state['rotation_stage'] = 'finalized'
                 session_state.rot_done = True
-                # Save the rotated images to the study
                 imgs = session_state['rotated_imgs']
                 if exp_type == 'cest':
                     session_state.recon['cest']['imgs'] = imgs 
@@ -124,12 +128,10 @@ def rotate_imgs(session_state, exp_type):
                 st.write("Rotation finalized!")
                 st.rerun()
             elif rotation_ok == 'No':
-                # Reset the rotation stage to allow for re-selection of rotation
                 session_state['rotation_stage'] = 'select_rotation'
                 session_state['rotated_imgs'] = None
                 st.write("Rotation not correct. Please try again.")
                 st.rerun()
-                # Re-run the step to allow the user to select a new rotation without rerunning the entire app.
 
 def quick_rot(session_state, exp_type):
     if exp_type == 'wassr':
