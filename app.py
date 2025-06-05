@@ -8,7 +8,7 @@ Created on Tue Jan  7 12:35:44 2025
 
 import streamlit as st
 import os
-from scripts import load_study, draw_rois, cest_fitting, plotting, plotting_wassr
+from scripts import load_study, draw_rois, cest_fitting, plotting, plotting_wassr, plotting_damb1
 from custom import st_functions
 
 site_icon = "./custom/icons/ksp.ico"
@@ -442,7 +442,7 @@ if st.session_state.is_submitted:
                     if st.session_state.submitted_data['pixelwise'] == True and st.session_state.processed_data['pixelwise']['fits'] is None:
                         cest_fitting.calc_spectra_pixelwise(imgs, st.session_state)
                         st.session_state.processed_data['pixelwise']['fits'] = cest_fitting.per_pixel(st.session_state)
-                    st.success("Fitting complete!")
+                    st.success("Fitting complete (CEST)!")
         ## WASSR processing
         if "WASSR" in submitted_data["selection"] and (
         "CEST" not in submitted_data["selection"] or 
@@ -505,7 +505,8 @@ if st.session_state.is_submitted:
                         draw_rois.aha_segmentation(image, st.session_state)
                 imgs = st.session_state.recon['wassr']['imgs']
                 st.session_state.processed_data['wassr_fits'] = cest_fitting.fit_wassr(imgs, st.session_state)
-        # DAMB1 processing
+                st.success("Fitting complete (WASSR)!")
+        ## DAMB1 processing
         cest_selected = "CEST" in submitted_data["selection"]
         wassr_selected = "WASSR" in submitted_data["selection"]
         damb1_selected = "DAMB1" in submitted_data["selection"]
@@ -522,12 +523,40 @@ if st.session_state.is_submitted:
         if damb1_selected and (
             (cest_selected and wassr_selected and cest_ready and wassr_ready) or
             (cest_selected and not wassr_selected and cest_ready) or
-            (not cest_selected and wassr_selected and wassr_ready)
+            (not cest_selected and wassr_selected and wassr_ready) or
+            (not cest_selected and not wassr_selected)
         ):
-            if session_state.recon['damb1'] is None:
-                data_damb1 = load_study.recon_damb1(st.session_state)
-                st.session_state.recon['damb1'] = data_damb1
-            
+            if 'rotation_stage' not in st.session_state:
+                st.session_state['rotation_stage'] = 'select_rotation'  # Stages: 'select_rotation', 'confirm_rotation', 'finalized'
+            if 'selected_rotation' not in st.session_state:
+                st.session_state['selected_rotation'] = 0
+            if 'rotated_imgs' not in st.session_state:
+                st.session_state['rotated_imgs'] = None
+            if 'damb1_rot_exists' not in st.session_state:
+                st.session_state['damb1_rot_exists'] = False  
+            if st.session_state.recon['damb1'] is None:
+                st.session_state.recon["damb1"] = load_study.recon_damb1(st.session_state)
+                st.session_state.loading_done['damb1'] = True
+                if wassr_selected and (st.session_state['wassr_rot_exists'] == True and st.session_state['wassr_type'] == 'Rectilinear'):
+                    load_study.quick_rot(st.session_state, 'damb1')
+                    st.session_state.loading_done['damb1'] = True
+                if cest_selected and (st.session_state['cest_rot_exists'] == True and st.session_state.submiited_data['cest_type'] == 'Rectilinear'):
+                    load_study.quick_rot(st.session_state, 'damb1')
+                    st.session_state.loading_done['damb1'] = True
+                else:
+                    st.session_state['rotation_stage'] = 'select_rotation'
+                    st.session_state['selected_rotation'] = 0
+                    st.session_state['rotated_imgs'] = None
+                    st.session_state['rot_done'] = False
+                    st.session_state['damb1_rot_exists'] = True
+            if st.session_state.recon['damb1'] and st.session_state['damb1_rot_exists'] == True:
+                load_study.rotate_imgs(st.session_state, 'damb1')
+            if st.session_state['damb1_rot_exists'] == True and st.session_state.rot_done == True:
+                st.session_state.loading_done['damb1'] = True
+            if st.session_state.loading_done['damb1'] == True:
+                imgs = st.session_state.recon["damb1"]["imgs"]
+                st.session_state.processed_data['b1_fits'] = cest_fitting.fit_b1(imgs, st.session_state)
+
     # Final check: Only mark as processed if all selected types are done
     required_keys = []
     if 'CEST' in submitted_data['selection']:
@@ -551,7 +580,7 @@ if st.session_state.is_submitted:
         )
 
     # If all conditions are True, finalize processing
-    if all(required_keys) and st.session_state.rois_done:
+    if all(required_keys):
         st.session_state.processing_active = False
         st.session_state.is_processed = True
         st.session_state.display_data = True
@@ -583,6 +612,9 @@ if st.session_state.display_data == True:
             plotting_wassr.plot_wassr(image, st.session_state)
             if st.session_state.submitted_data['organ'] == 'Cardiac': 
                 plotting_wassr.plot_wassr_aha(st.session_state)
+        if "DAMB1" in submitted_data["selection"]:
+            st.header('DAMB1')
+            plotting_damb1.plot_damb1(st.session_state)
 
 if st.button("Reset"):
     st.error("To reset and resubmit, please refresh the page.")

@@ -369,3 +369,15 @@ def fit_wassr(imgs, session_state):
     progress_bar.progress(1.0, text="WASSR B₀ fitting complete.")
     progress_bar.empty()
     return pixelwise
+
+def fit_b1(imgs, session_state):
+    theta = imgs[:,:,0]
+    two_theta = imgs[:,:,1]
+    flip = session_state.recon["damb1"]["nominal_flip"]
+    ratio = np.clip(two_theta / (2 * theta), -1.0, 1.0)
+    theta_actual_rad = np.arccos(ratio)
+    theta_actual_deg = np.rad2deg(theta_actual_rad)
+    flip_error = flip - theta_actual_deg
+    flip_error = np.nan_to_num(flip_error)
+    flip_error = np.squeeze(flip_error)
+    return flip_error
