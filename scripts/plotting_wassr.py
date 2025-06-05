@@ -47,46 +47,94 @@ def plot_wassr_aha(session_state):
 def plot_wassr(image, session_state):
     save_path = session_state.submitted_data["save_path"]
     image_path = os.path.join(save_path, 'Images')
-    b0_image = np.zeros_like(image, dtype='float')
     if not os.path.isdir(image_path):
         os.makedirs(image_path)
-    # Determine cropping bounds using LV mask
-    if session_state.submitted_data['organ'] == 'Cardiac':
-        lv_mask = session_state.user_geometry["masks"]["lv"]
-        y_indices, x_indices = np.where(lv_mask)
-        x_min, x_max = max(np.min(x_indices) - 20, 0), min(np.max(x_indices) + 20, lv_mask.shape[1])
-        y_min, y_max = max(np.min(y_indices) - 20, 0), min(np.max(y_indices) + 20, lv_mask.shape[0])
-        # Use AHA segments for actual plotting
-        segment_masks = session_state.user_geometry["aha"]
-        fits = session_state.processed_data['wassr_fits']
-        # Fill in b0_image using the segment masks
-        for label, coord_list in segment_masks.items():
-            data = fits[label]
-            for idx, (i, j) in enumerate(coord_list):
-                b0_image[i, j] = data[idx]
-    else:
-        masks = session_state.user_geometry["masks"]
-        x_min, x_max = 0, image.shape[1]
-        y_min, y_max = 0, image.shape[0]
-        fits = session_state.processed_data['wassr_fits']
-        for label, mask in masks.items():
-            data = fits[label]
-            mask_indices = np.argwhere(mask)
-            for idx, (i, j) in enumerate(mask_indices):
-                b0_image[i, j] = data[idx]
+        
+    b0_full_map = session_state.processed_data.get('wassr_full_map')
 
-    transparent_b0 = np.ma.masked_where(b0_image == 0, b0_image)
-    # Plot
-    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
-    ax.imshow(image[y_min:y_max, x_min:x_max], cmap='gray')
-    im = ax.imshow(transparent_b0[y_min:y_max, x_min:x_max], cmap='plasma', alpha=0.9)
-    ax.set_title('WASSR Map', fontsize=28, fontname='Arial', weight='bold')
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    cbar = fig.colorbar(im, cax=cax)
-    cbar.ax.tick_params(labelsize=14)
-    cbar.set_label('B$_0$ Shift (ppm)', fontname='Arial', fontsize=16)
-    ax.axis('off')
+    # Case 1: Full B0 map is available
+    if b0_full_map is not None:
+        # Create the masked overlay from the full map
+        masked_b0 = np.zeros_like(b0_full_map, dtype=float)
+        if session_state.submitted_data['organ'] == 'Cardiac':
+            segment_masks = session_state.user_geometry["aha"]
+            for label, coord_list in segment_masks.items():
+                for i, j in coord_list:
+                    masked_b0[i, j] = b0_full_map[i, j]
+        else:
+            masks = session_state.user_geometry["masks"]
+            for label, mask in masks.items():
+                masked_b0[mask] = b0_full_map[mask]
+
+        y_min, y_max, x_min, x_max = 0, image.shape[0], 0, image.shape[1]
+        if session_state.submitted_data['organ'] == 'Cardiac':
+            lv_mask = session_state.user_geometry["masks"]["lv"]
+            y_indices, x_indices = np.where(lv_mask)
+            x_min, x_max = max(np.min(x_indices) - 20, 0), min(np.max(x_indices) + 20, lv_mask.shape[1])
+            y_min, y_max = max(np.min(y_indices) - 20, 0), min(np.max(y_indices) + 20, lv_mask.shape[0])
+
+        transparent_b0_overlay = np.ma.masked_where(masked_b0 == 0, masked_b0)
+
+        fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+        fig.suptitle('WASSR B$_0$ Map Visualization', fontsize=26, fontname='Arial', weight='bold')
+        
+        vmin = np.nanmin(transparent_b0_overlay)
+        vmax = np.nanmax(transparent_b0_overlay)
+        
+        axs[0].imshow(b0_full_map, cmap='plasma', vmin=vmin, vmax=vmax)
+        axs[0].set_title('Full B$_0$ Map', fontsize=20, fontname='Arial', weight='bold')
+        axs[0].axis('off')
+        
+        axs[1].imshow(image[y_min:y_max, x_min:x_max], cmap='gray')
+        im1 = axs[1].imshow(transparent_b0_overlay[y_min:y_max, x_min:x_max], cmap='plasma', alpha=0.9, vmin=vmin, vmax=vmax)
+        axs[1].set_title('Masked B$_0$ on Reference', fontsize=20, fontname='Arial', weight='bold')
+        axs[1].axis('off')
+
+        divider = make_axes_locatable(axs[1])
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        cbar = fig.colorbar(im1, cax=cax)
+        cbar.ax.tick_params(labelsize=14)
+        cbar.set_label('B$_0$ Shift (ppm)', fontname='Arial', fontsize=16)
+
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        
+    # Case 2: Only masked data is available
+    else:
+        b0_image = np.zeros_like(image, dtype='float')
+        if session_state.submitted_data['organ'] == 'Cardiac':
+            lv_mask = session_state.user_geometry["masks"]["lv"]
+            y_indices, x_indices = np.where(lv_mask)
+            x_min, x_max = max(np.min(x_indices) - 20, 0), min(np.max(x_indices) + 20, lv_mask.shape[1])
+            y_min, y_max = max(np.min(y_indices) - 20, 0), min(np.max(y_indices) + 20, lv_mask.shape[0])
+            segment_masks = session_state.user_geometry["aha"]
+            fits = session_state.processed_data['wassr_fits']
+            for label, coord_list in segment_masks.items():
+                data = fits[label]
+                for idx, (i, j) in enumerate(coord_list):
+                    b0_image[i, j] = data[idx]
+        else:
+            masks = session_state.user_geometry["masks"]
+            x_min, x_max = 0, image.shape[1]
+            y_min, y_max = 0, image.shape[0]
+            fits = session_state.processed_data['wassr_fits']
+            for label, mask in masks.items():
+                data = fits[label]
+                mask_indices = np.argwhere(mask)
+                for idx, (i, j) in enumerate(mask_indices):
+                    b0_image[i, j] = data[idx]
+
+        transparent_b0 = np.ma.masked_where(b0_image == 0, b0_image)
+        fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+        ax.imshow(image[y_min:y_max, x_min:x_max], cmap='gray')
+        im = ax.imshow(transparent_b0[y_min:y_max, x_min:x_max], cmap='plasma', alpha=0.9)
+        ax.set_title('WASSR Map', fontsize=28, fontname='Arial', weight='bold')
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        cbar = fig.colorbar(im, cax=cax)
+        cbar.ax.tick_params(labelsize=14)
+        cbar.set_label('B$_0$ Shift (ppm)', fontname='Arial', fontsize=16)
+        ax.axis('off')
+
     st.subheader("B0 Map")
     st.pyplot(fig)
-    plt.savefig(os.path.join(image_path, 'B0_Map.png'), dpi=300, bbox_inches="tight")
+    plt.savefig(os.path.join(image_path, 'B0_Map_Comparison.png'), dpi=300, bbox_inches="tight")

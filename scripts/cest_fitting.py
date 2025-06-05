@@ -317,15 +317,75 @@ def per_pixel(session_state):
     progress_bar.empty()
     return fits
 
-def fit_wassr(imgs, session_state):
+def fit_wassr_full(imgs, session_state):
+    n_interp = 1000
+    organ = session_state.submitted_data['organ']
+    offsets = session_state.recon['wassr']['offsets']
+    
+    b0_full_map = np.full((imgs.shape[0], imgs.shape[1]), np.nan, dtype=float)
+    
+    total_pixels = imgs.shape[0] * imgs.shape[1]
+    progress_bar = st.progress(0, text="Fitting full WASSR B₀ map...")
+    progress_counter = 0
+
+    for i in range(imgs.shape[0]):
+        for j in range(imgs.shape[1]):
+            progress_counter += 1
+            if progress_counter % 100 == 0:
+                 progress_bar.progress(progress_counter / total_pixels, text="Fitting full WASSR B₀ map...")
+
+            if np.mean(imgs[i, j, :]) < 0.05 * np.max(imgs):
+                continue
+                
+            spectrum = imgs[i, j, :]
+            pixel_offsets = offsets.copy()
+            
+            if pixel_offsets[0] > pixel_offsets[-1]:
+                pixel_offsets = np.flip(pixel_offsets)
+                spectrum = np.flip(spectrum)
+            
+            try:
+                cubic_spline = CubicSpline(pixel_offsets, spectrum)
+                offsets_interp = np.linspace(pixel_offsets[0], pixel_offsets[-1], n_interp)
+                spectrum_interp = cubic_spline(offsets_interp)
+                
+                min_idx = np.argmin(spectrum_interp)
+                p0_corr[2] = offsets_interp[min_idx]
+
+                Fit_1, _ = curve_fit(Step_1_Fit, offsets_interp, spectrum_interp, p0=p0_corr, bounds=(lb_corr, ub_corr))
+                Water_Fit = Lorentzian(offsets_interp, Fit_1[0], Fit_1[1], Fit_1[2])
+                b0_shift = offsets_interp[np.argmax(Water_Fit)]
+                b0_full_map[i, j] = b0_shift
+            except (RuntimeError, ValueError):
+                b0_full_map[i, j] = np.nan
+
+    progress_bar.progress(1.0, text="WASSR B₀ fitting complete.")
+    progress_bar.empty()
+
+    pixelwise = {}
+    if organ == 'Cardiac':
+        masks_dict = session_state.user_geometry['aha']
+        for label, coord_list in masks_dict.items():
+            valid_coords = [c for c in coord_list if not np.isnan(b0_full_map[c[0], c[1]])]
+            pixelwise[label] = [b0_full_map[r, c] for r, c in valid_coords]
+    else:
+        masks_dict = session_state.user_geometry['masks']
+        for label, mask in masks_dict.items():
+            coords = np.argwhere(mask)
+            valid_coords = [c for c in coords if not np.isnan(b0_full_map[c[0], c[1]])]
+            pixelwise[label] = [b0_full_map[r, c] for r, c in valid_coords]
+            
+    return pixelwise, b0_full_map
+
+
+def fit_wassr_masked(imgs, session_state):
     n_interp = 1000
     organ = session_state.submitted_data['organ']
     offsets = session_state.recon['wassr']['offsets']
     pixelwise = {}
 
-    # Gather total number of pixels to fit
     if organ == 'Cardiac':
-        masks_dict = session_state.user_geometry['aha']  # dict: {label: list of (i,j)}
+        masks_dict = session_state.user_geometry['aha']
         all_coords = [(label, coord) for label, coords in masks_dict.items() for coord in coords]
     else:
         masks_dict = session_state.user_geometry['masks']
@@ -334,19 +394,20 @@ def fit_wassr(imgs, session_state):
             coords = np.argwhere(mask)
             all_coords.extend([(label, tuple(coord)) for coord in coords])
 
-    # Initialize
-    progress_bar = st.progress(0, text="Fitting WASSR B₀ shifts...")
+    progress_bar = st.progress(0, text="Fitting WASSR B₀ shifts for masked region...")
     total = len(all_coords)
+    if total == 0:
+        progress_bar.progress(1.0)
+        return {}
+        
     progress_counter = 0
 
-    # Preallocate label-wise storage
     for label in masks_dict:
         pixelwise[label] = []
 
     for label, (i, j) in all_coords:
-        spectrum = [imgs[i, j, k] for k in range(imgs.shape[2])]
+        spectrum = imgs[i, j, :]
         pixel_offsets = offsets.copy()
-        spectrum = np.array(spectrum)
         if pixel_offsets[0] > pixel_offsets[-1]:
             pixel_offsets = np.flip(pixel_offsets)
             spectrum = np.flip(spectrum)
@@ -355,6 +416,9 @@ def fit_wassr(imgs, session_state):
             offsets_interp = np.linspace(pixel_offsets[0], pixel_offsets[-1], n_interp)
             spectrum_interp = cubic_spline(offsets_interp)
 
+            min_idx = np.argmin(spectrum_interp)
+            p0_corr[2] = offsets_interp[min_idx]
+
             Fit_1, _ = curve_fit(Step_1_Fit, offsets_interp, spectrum_interp, p0=p0_corr, bounds=(lb_corr, ub_corr))
             Water_Fit = Lorentzian(offsets_interp, Fit_1[0], Fit_1[1], Fit_1[2])
             b0_shift = offsets_interp[np.argmax(Water_Fit)]
@@ -362,9 +426,8 @@ def fit_wassr(imgs, session_state):
             b0_shift = np.nan
 
         pixelwise[label].append(b0_shift)
-
         progress_counter += 1
-        progress_bar.progress(progress_counter / total, text="Fitting WASSR B₀ shifts...")
+        progress_bar.progress(progress_counter / total, text="Fitting WASSR B₀ shifts for masked region...")
 
     progress_bar.progress(1.0, text="WASSR B₀ fitting complete.")
     progress_bar.empty()

@@ -9,6 +9,61 @@ Created on Wed Jan  8 10:36:34 2025
 import streamlit as st
 import pickle
 import os
+import base64
+
+def get_img_as_base64(file):
+    """Reads an image file and returns it as a base64 encoded string."""
+    with open(file, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+def inject_custom_loader(gif_path):
+    """Injects CSS to replace the Streamlit status icon with a custom GIF."""
+    
+    img_base64 = get_img_as_base64(gif_path)
+    
+    custom_loader_css = f"""
+        <style>
+            /* Target the container that holds the icon and text */
+            [data-testid="stStatusWidget"] > div {{
+                position: relative; /* Needed for positioning the pseudo-element */
+            }}
+
+            /* Hide the original SVG icon completely */
+            [data-testid="stStatusWidget"] svg {{
+                display: none !important;
+            }}
+
+            /* Hide the original text ("Running...") but keep its space to avoid layout shifts */
+            [data-testid="stStatusWidget"] span {{
+                visibility: hidden !important;
+            }}
+            
+            /* Create the new icon using a pseudo-element */
+            [data-testid="stStatusWidget"] > div::before {{
+                /* This is our new icon */
+                content: '';
+                position: absolute;
+                
+                /* Perfectly center the icon in the container */
+                top: 50%;
+                left: 10%;
+                transform: translate(-50%, -50%);
+                z-index: 9999;
+                
+                /* Set the size of our icon */
+                width: 45px;
+                height: 45px;
+                
+                /* Apply the GIF */
+                background-image: url("data:image/gif;base64,{img_base64}");
+                background-size: contain;
+                background-repeat: no-repeat;
+                background-position: center;
+            }}
+        </style>
+    """
+    st.markdown(custom_loader_css, unsafe_allow_html=True)
 
 # Define CSS and HTML for hover effect
 def add_hoverable_title_with_image(title_text, image_url):
