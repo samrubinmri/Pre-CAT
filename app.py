@@ -615,6 +615,8 @@ if st.session_state.display_data == True:
         if "DAMB1" in submitted_data["selection"]:
             st.header('DAMB1')
             plotting_damb1.plot_damb1(st.session_state)
+            if st.session_state.submitted_data['organ'] == 'Cardiac' and 'CEST' or 'WASSR' in session_state.submitted_data['selection']:
+                plotting_damb1.plot_damb1_aha(st.session_state)
 
 if st.button("Reset"):
     st.error("To reset and resubmit, please refresh the page.")

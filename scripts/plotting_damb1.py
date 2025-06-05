@@ -68,7 +68,37 @@ def plot_damb1(session_state):
         fig.tight_layout(rect=[0, 0, 1, 0.95])
         st.pyplot(fig)
 
-def plot_damb1_aha(sesssion_state):
-	return None
+def plot_damb1_aha(session_state):
+    b1_fits = session_state.processed_data['b1_fits']
+    reference = 'cest' if 'CEST' in session_state.submitted_data['selection'] else 'wassr'
+    ref_img = session_state.recon[reference]['m0']
+    zoom_factors = (
+        ref_img.shape[0] / b1_fits.shape[0],
+        ref_img.shape[1] / b1_fits.shape[1]
+    )
+    b1_interp = ndimage.zoom(b1_fits, zoom=zoom_factors, order=1)
+    # Use AHA segments for actual plotting
+    segment_masks = session_state.user_geometry["aha"]
+    data = []
+    for segment, coord_list in segment_masks.items():
+        for (i, j) in coord_list:
+            val = b1_interp[i, j]
+            data.append({'Segment': segment, 'Flip Angle Error (°)': val})
+
+    df = pd.DataFrame(data)
+
+    # Plot with Seaborn
+    sns.set(style="whitegrid")
+    fig, ax = plt.subplots(figsize=(9, 6))
+    palette = sns.color_palette("husl", len(df['Segment'].unique()))
+    sns.boxplot(x='Segment', y='Flip Angle Error (°)', data=df, palette=palette, width=0.4, ax=ax)
+
+    ax.set_title('Flip Angle Error by AHA Segment', fontsize=28, fontname='Arial', weight='bold')
+    ax.set_xlabel('', fontsize=18)
+    ax.set_ylabel('Flip Angle Error (°)', fontsize=16, fontname='Arial')
+    ax.tick_params(labelsize=14)
+    fig.tight_layout()
+
+    st.pyplot(fig)
 
 
