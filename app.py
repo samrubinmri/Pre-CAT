@@ -540,7 +540,7 @@ if st.session_state.is_submitted:
                 if wassr_selected and (st.session_state['wassr_rot_exists'] == True and st.session_state['wassr_type'] == 'Rectilinear'):
                     load_study.quick_rot(st.session_state, 'damb1')
                     st.session_state.loading_done['damb1'] = True
-                if cest_selected and (st.session_state['cest_rot_exists'] == True and st.session_state.submiited_data['cest_type'] == 'Rectilinear'):
+                if cest_selected and (st.session_state['cest_rot_exists'] == True and st.session_state.submittced_data['cest_type'] == 'Rectilinear'):
                     load_study.quick_rot(st.session_state, 'damb1')
                     st.session_state.loading_done['damb1'] = True
                 else:
@@ -601,10 +601,9 @@ if st.session_state.display_data == True:
             st_functions.save_raw(st.session_state)
             if st.session_state.submitted_data['organ'] == 'Cardiac': 
                 rmse = st.session_state.processed_data["fits"]["Anterior"]["RMSE"]
+                st.info(f'**Anterior fit RMSE:** {rmse*100:.3f}%')  
                 if rmse > 0.02:
-                    st.warning("High RMSE in anterior segment! Recommend examining and/or excluding this dataset!")
-                st.write(rmse)
-            st.success("Images, plots, and raw data saved at **%s**" % save_path)
+                    st.error("High RMSE in anterior segment! Recommend examining and/or excluding this dataset!")
         if "WASSR" in submitted_data["selection"]:
             st.header('WASSR')
             if "CEST" not in submitted_data["selection"]:
@@ -617,6 +616,7 @@ if st.session_state.display_data == True:
             plotting_damb1.plot_damb1(st.session_state)
             if st.session_state.submitted_data['organ'] == 'Cardiac' and 'CEST' or 'WASSR' in session_state.submitted_data['selection']:
                 plotting_damb1.plot_damb1_aha(st.session_state)
+        st.success("Images, plots, and raw data saved at **%s**" % save_path)
 
 if st.button("Reset"):
     st.error("To reset and resubmit, please refresh the page.")
