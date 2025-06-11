@@ -8,7 +8,7 @@ Created on Tue Jan  7 12:35:44 2025
 
 import streamlit as st
 import os
-from scripts import load_study, draw_rois, cest_fitting, plotting, plotting_wassr, plotting_damb1
+from scripts import load_study, pre_processing, draw_rois, cest_fitting, plotting, plotting_wassr, plotting_damb1
 from custom import st_functions
 from pathlib import Path
 
@@ -179,9 +179,10 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     """,
                     unsafe_allow_html=True,
                     )
-                    smoothing_filter = True
                     if "CEST" in selection and cest_type == "Radial":
-                        moco = st.toggle('Motion correction', help="Correct bulk motion by discarding spokes based on changes in center *k*-space magnitude.")
+                        moco_cest = st.toggle('Motion correction (CEST)', help="Correct bulk motion by discarding spokes based on projection images.")
+                        if moco_cest:
+                            pca = st.toggle('Z-spectral denoising', help="Z-spectral denoising with principal component analysis. This is a *global* method using Malinowskis empirical indicator function.")
                     pixelwise = st.toggle(
                         'Pixelwise mapping', help="Accuracy is highly dependent on field homogeneity.")
                     if pixelwise:
@@ -250,6 +251,8 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                 if wassr_path:
                     wassr_type = st.radio('WASSR acquisition type', ["Radial", "Rectilinear"], horizontal=True)
                     full_b0_mapping = st.toggle('Full B0 mapping', value=True, help="Fit B0 map for the entire image. Slower, but allows for full map visualization.") 
+                    if "WASSR" in selection and wassr_type == "Radial":
+                        moco_wassr = st.toggle('Motion correction (WASSR)', help="Correct bulk motion by discarding spokes based on projection images.")
                     if not wassr_type:
                         all_fields_filled = False  # WASSR acquisition type is required
                     wassr_full_path = os.path.join(folder_path, wassr_path)
@@ -317,10 +320,13 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                             st.session_state.submitted_data['cest_type'] = cest_type
                             st.session_state.submitted_data['pixelwise'] = pixelwise
                             st.session_state.submitted_data['smoothing_filter'] = smoothing_filter
+                            st.session_state.submitted_data['moco_cest'] = moco_cest
+                            st.session_state.submitted_data['pca'] = pca
                         if "WASSR" in selection: 
                             st.session_state.submitted_data['wassr_path'] = wassr_path
                             st.session_state.submitted_data['wassr_type'] = wassr_type
                             st.session_state.submitted_data['full_b0_mapping'] = full_b0_mapping
+                            st.session_state.submitted_data['moco_wassr'] = moco_wassr
                         if "DAMB1" in selection:
                             st.session_state.submitted_data['theta_path'] = theta_path
                             st.session_state.submitted_data['two_theta_path'] = two_theta_path
@@ -405,8 +411,12 @@ if st.session_state.is_submitted:
                     ## Add ability to rotate rectilinear data
             elif cest_type == 'Radial':
                 if st.session_state.recon['cest'] is None:
-                    data_cest = load_study.recon_bart(cest_path, folder_path)
-                    st.session_state.recon['cest'] = data_cest
+                    if st.session_state.submitted_data["moco_cest"] == False:
+                        data_cest = load_study.recon_bart(cest_path, folder_path)
+                        st.session_state.recon['cest'] = data_cest
+                    elif st.session_state.submitted_data["moco_cest"] == True:
+                        data_cest = pre_processing.pre_processing(st.session_state, 'cest')
+                        st.session_state.recon['cest'] = data_cest
             if 'rotation_stage' not in st.session_state:
                     st.session_state['rotation_stage'] = 'select_rotation'  # Stages: 'select_rotation', 'confirm_rotation', 'finalized'
             if 'selected_rotation' not in st.session_state:
@@ -467,8 +477,12 @@ if st.session_state.is_submitted:
                     st.session_state.loading_done['wassr'] = True
             elif wassr_type == 'Radial':
                 if st.session_state.recon['wassr'] is None:
-                    data_wassr = load_study.recon_bart(wassr_path, folder_path)
-                    st.session_state.recon['wassr'] = data_wassr
+                    if st.session_state.submitted_data["moco_wassr"] == False:
+                        data_wassr = load_study.recon_bart(wassr_path, folder_path)
+                        st.session_state.recon['wassr'] = data_wassr
+                    elif st.session_state.submitted_data["moco_wassr"] == True:
+                        data_wassr = pre_processing.pre_processing(st.session_state, 'wassr')
+                        st.session_state.recon['wassr'] = data_wassr
             if 'rotation_stage' not in st.session_state:
                 st.session_state['rotation_stage'] = 'select_rotation'
             if 'selected_rotation' not in st.session_state:
