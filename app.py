@@ -157,80 +157,76 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     smoothing_filter = False
                     moco_cest = False
                     pca = False
-                    pca_method = None
                     pixelwise = False
                     cest_type = st.radio('CEST acquisition type', ["Radial", "Rectilinear"], horizontal=True)
-                    with st.container(border=True):
-                        st.markdown(
-                        """
-                        <style>
-                        .custom-label {
-                            font-size: 0.875rem; /* Matches theme.fontSizes.sm */
-                            display: flex;
-                            align-items: center;
-                            margin-bottom: 0.25rem; /* Matches theme.spacing.twoXS */
-                            min-height: 1.25rem; /* Matches theme.fontSizes.xl */
-                            font-family: 'Source Sans Pro', sans-serif;
-                            font-weight: normal; /* Ensure weight matches */
-                            line-height: 1.6; /* Ensures vertical alignment */
-                        }
-                        </style>
-                        <label class="custom-label">
-                          Additional settings
-                        </label>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                        )
-                        if "CEST" in selection and cest_type == "Radial":
-                            moco_cest = st.toggle('Motion correction (CEST)', help="Correct bulk motion by discarding spokes based on projection images.")
-                            if moco_cest:
-                                    pca = st.toggle('Z-spectral denoising', help="Z-spectral denoising with principal component analysis. This is a *global* method using Malinowskis empirical indicator function.")
-                                    if pca:
-                                        pca_method = st.radio("Denoising ROI", ['Global','Tissue'])
-                        pixelwise = st.toggle(
-                            'Pixelwise mapping', help="Accuracy is highly dependent on field homogeneity.")
-                        if pixelwise:
-                            smoothing_filter = st.toggle('Median smoothing filter', help="Apply a median filter to smooth contrast maps.")
-                        if anatomy == "Other":
-                            reference = st.toggle(
-                                'Additional reference image', help="Use this option to load an additional reference image for ROI(s)/masking. By default, the unsaturated (S0/M0) image is used.")
-                            if reference:
-                                all_fields_filled = False
-                                reference_path = st.text_input('Input reference experiment number', help='Reference image assumed to be rectilinear. Please only use single slice images.')
-                                if reference_path:
-                                    reference_full_path = os.path.join(folder_path, reference_path)
-                                    all_fields_filled = True
-                                    reference_validation = False
-                                    if os.path.isdir(reference_full_path):  
-                                        reference_validation = True
-                                        missing_items = validate_rectilinear(reference_full_path)
-                                        if missing_items:
-                                            st.error(f"Reference folder is missing the following required items: {', '.join(missing_items)}")
+                    st.markdown(
+                    """
+                    <style>
+                    .custom-label {
+                        font-size: 0.875rem; /* Matches theme.fontSizes.sm */
+                        display: flex;
+                        align-items: center;
+                        margin-bottom: 0.25rem; /* Matches theme.spacing.twoXS */
+                        min-height: 1.25rem; /* Matches theme.fontSizes.xl */
+                        font-family: 'Source Sans Pro', sans-serif;
+                        font-weight: normal; /* Ensure weight matches */
+                        line-height: 1.6; /* Ensures vertical alignment */
+                    }
+                    </style>
+                    <label class="custom-label">
+                      Additional settings
+                    </label>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                    )
+                    if "CEST" in selection and cest_type == "Radial":
+                        moco_cest = st.toggle('Motion correction (CEST)', help="Correct bulk motion by discarding spokes based on projection images.")
+                        if moco_cest:
+                            pca = st.toggle('Z-spectral denoising', help="Z-spectral denoising with principal component analysis. This is a *global* method using Malinowskis empirical indicator function.")
+                    pixelwise = st.toggle(
+                        'Pixelwise mapping', help="Accuracy is highly dependent on field homogeneity.")
+                    if pixelwise:
+                        smoothing_filter = st.toggle('Median smoothing filter', help="Apply a median filter to smooth contrast maps.")
+                    if anatomy == "Other":
+                        reference = st.toggle(
+                            'Additional reference image', help="Use this option to load an additional reference image for ROI(s)/masking. By default, the unsaturated (S0/M0) image is used.")
+                        if reference:
+                            all_fields_filled = False
+                            reference_path = st.text_input('Input reference experiment number', help='Reference image assumed to be rectilinear. Please only use single slice images.')
+                            if reference_path:
+                                reference_full_path = os.path.join(folder_path, reference_path)
+                                all_fields_filled = True
+                                reference_validation = False
+                                if os.path.isdir(reference_full_path):  
+                                    reference_validation = True
+                                    missing_items = validate_rectilinear(reference_full_path)
+                                    if missing_items:
+                                        st.error(f"Reference folder is missing the following required items: {', '.join(missing_items)}")
+                                        reference_validation = False
+                                    else:
+                                        reference_image = load_study.load_bruker_img(reference_path, folder_path)
+                                        if reference_image.shape[2] != 1:
+                                            st.error("Reference image contains multislice data! Currently, only single slice data is allowed.")
                                             reference_validation = False
                                         else:
-                                            reference_image = load_study.load_bruker_img(reference_path, folder_path)
-                                            if reference_image.shape[2] != 1:
-                                                st.error("Reference image contains multislice data! Currently, only single slice data is allowed.")
-                                                reference_validation = False
-                                            else:
-                                               st.session_state.reference = reference_image 
-                                    else:
-                                        st.error(f"Reference folder does not exist: {reference_full_path}")
-                                        reference_validation = False
-                                    
-                            choose_contrasts = st.toggle(
-                                'Choose contrasts', help="Default contrasts are: amide, creatine, NOE. Water and MT are always fit.")
-                            if choose_contrasts:
-                                contrasts = ["NOE (-3.5 ppm)", "Amide", "Creatine", "Amine", "Hydroxyl", "NOE (-1.6 ppm)"]
-                                default_contrasts = ["NOE (-3.5 ppm)", "Amide", "Creatine", "NOE (-1.6 ppm)"]
-                                contrast_selection = st.pills ("Contrasts", contrasts, default=default_contrasts, selection_mode="multi")
-                                st.session_state.custom_contrasts = contrast_selection
-                            else:
-                                st.session_state.custom_contrasts = None
-                        elif anatomy == "Cardiac":
-                            st.session_state.reference = None
+                                           st.session_state.reference = reference_image 
+                                else:
+                                    st.error(f"Reference folder does not exist: {reference_full_path}")
+                                    reference_validation = False
+                                
+                        choose_contrasts = st.toggle(
+                            'Choose contrasts', help="Default contrasts are: amide, creatine, NOE. Water and MT are always fit.")
+                        if choose_contrasts:
+                            contrasts = ["NOE (-3.5 ppm)", "Amide", "Creatine", "Amine", "Hydroxyl", "NOE (-1.6 ppm)"]
+                            default_contrasts = ["NOE (-3.5 ppm)", "Amide", "Creatine", "NOE (-1.6 ppm)"]
+                            contrast_selection = st.pills ("Contrasts", contrasts, default=default_contrasts, selection_mode="multi")
+                            st.session_state.custom_contrasts = contrast_selection
+                        else:
                             st.session_state.custom_contrasts = None
+                    elif anatomy == "Cardiac":
+                        st.session_state.reference = None
+                        st.session_state.custom_contrasts = None
                     if not cest_type:
                         all_fields_filled = False  
                     cest_full_path = os.path.join(folder_path, cest_path)
@@ -327,9 +323,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                             st.session_state.submitted_data['pixelwise'] = pixelwise
                             st.session_state.submitted_data['smoothing_filter'] = smoothing_filter
                             st.session_state.submitted_data['moco_cest'] = moco_cest
-                            st.session_state.submitted_data['pca'] = {
-                            'on_off': pca,
-                            'roi': pca_method}
+                            st.session_state.submitted_data['pca'] = pca
                         if "WASSR" in selection: 
                             st.session_state.submitted_data['wassr_path'] = wassr_path
                             st.session_state.submitted_data['wassr_type'] = wassr_type
