@@ -5,6 +5,13 @@ Created on Mon Jun  9 15:07:25 2025
 
 @author: jonah
 """
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Jun  9 15:07:25 2025
+
+@author: jonah
+"""
 import numpy as np
 import streamlit as st
 from scipy.ndimage import uniform_filter1d
@@ -44,7 +51,7 @@ def motion_correction(ksp, traj, method, experiment_type):
     """
     print("Starting motion correction...")
     
-    # --- Get Parameters ---
+	# --- Get Parameters ---
     points, n_spokes, n_coils, n_offsets = ksp.shape
     seg = method['Num_Traj_per_Seg']
     # Corrected ppm calculation to match previous working versions
@@ -85,8 +92,6 @@ def motion_correction(ksp, traj, method, experiment_type):
 
     # --- Apply Filtering to All Offsets ---
     filtered_images_list = []
-    loading_bar = st.progress(0, text="Applying motion correction and reconstructing...")
-    
     for offset_idx in range(n_offsets):
         # Find the best coil for this offset to determine which segments to remove
         coil_spike_info_mc = []
@@ -118,11 +123,7 @@ def motion_correction(ksp, traj, method, experiment_type):
         ksp_for_recon = np.expand_dims(ksp_deleted, axis=0)
         filtered_img_single = recon(ksp_for_recon, traj_deleted)
         filtered_images_list.append(filtered_img_single)
-        
-        progress = (offset_idx + 1) / n_offsets
-        loading_bar.progress(progress, text=f"Applying motion correction: {offset_idx + 1}/{n_offsets}")
 
-    loading_bar.progress(1.0, text="Motion correction complete.")
     return np.stack(filtered_images_list, axis=-1)
 
 # ==============================================================================
@@ -174,9 +175,9 @@ def pre_processing(session_state, experiment_type):
     # Get variables from session state
     directory = session_state.submitted_data.get("folder_path")
     if experiment_type == "cest":
-        num_exp = session_state.submitted_data.get("cest_path")
+    	num_exp = session_state.submitted_data.get("cest_path")
     elif experiment_type == "wassr":
-        num_exp = session_state.submitted_data.get("wassr_path")
+    	num_exp = session_state.submitted_data.get("wassr_path")
     
     # Load data
     exp = bruker.ReadExperiment(directory, num_exp)
@@ -191,10 +192,13 @@ def pre_processing(session_state, experiment_type):
     
     # 2. Denoising
     if experiment_type == 'cest' and session_state.submitted_data["pca"] == True:
-        final_denoised_stack = denoise_data(motion_corrected_stack)
-        study = {"imgs": final_denoised_stack, "offsets": offsets}
+    	final_denoised_stack = denoise_data(motion_corrected_stack)
+    	study = {"imgs": final_denoised_stack, "offsets": offsets}
 
     else:
-        study = {"imgs": motion_corrected_stack, "offsets": offsets}
+    	study = {"imgs": motion_corrected_stack, "offsets": offsets}
     
     return study
+
+
+
