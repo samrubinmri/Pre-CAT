@@ -180,15 +180,7 @@ def denoise_data(image_stack, pca_method):
     denoised_data_matrix = pca_denoising.inverse_transform(transformed_data)
     
     # --- Reshape back to an image stack and return ---
-    if pca_method == "Global":
-        return denoised_data_matrix.reshape((height, width, n_offsets_s))
-    
-    elif pca_method == "Tissue":
-        # Create a new, zero-filled stack with the original image dimensions
-        reconstructed_stack = np.zeros_like(image_stack)
-        # Place the denoised data back into the correct locations using the mask
-        reconstructed_stack[final_mask] = denoised_data_matrix
-        return reconstructed_stack
+    return denoised_data_matrix.reshape((height, width, n_offsets_s))
 
 # ==============================================================================
 # Main Post-Processing Function (Example Usage)
