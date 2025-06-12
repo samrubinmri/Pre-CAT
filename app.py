@@ -252,7 +252,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                 if wassr_path:
                     moco_wassr = False
                     wassr_type = st.radio('WASSR acquisition type', ["Radial", "Rectilinear"], horizontal=True)
-                    full_b0_mapping = st.toggle('Full B0 mapping', value=True, help="Fit B0 map for the entire image. Slower, but allows for full map visualization.") 
+                    full_b0_mapping = st.toggle('Full B0 mapping', value=False, help="Fit B0 map for the entire image. Slower, but allows for full map visualization.") 
                     if "WASSR" in selection and wassr_type == "Radial":
                         moco_wassr = st.toggle('Motion correction (WASSR)', help="Correct bulk motion by discarding spokes based on projection images.")
                     if not wassr_type:
