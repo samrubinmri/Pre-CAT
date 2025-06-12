@@ -8,7 +8,7 @@ Created on Tue Jan  7 12:35:44 2025
 
 import streamlit as st
 import os
-from scripts import load_study, pre_processing, draw_rois, cest_fitting, plotting, plotting_wassr, plotting_damb1
+from scripts import load_study, pre_processing, draw_rois, cest_fitting, plotting, plotting_wassr, plotting_damb1, BrukerMRI
 from custom import st_functions
 from pathlib import Path
 
@@ -65,6 +65,17 @@ def validate_rectilinear(path):
             if not os.path.isfile(os.path.join(subfolder_path, '2dseq')):
                 missing.append("2dseq file within pdata subfolder")
     return missing
+
+def validate_double_angle(directory, theta_path, two_theta_path):
+    """Check flip angles to make sure it's really double angle method"""
+    exp_theta = BrukerMRI.ReadExperiment(directory, theta_path)
+    exp_two_theta = BrukerMRI.ReadExperiment(directory, two_theta_path)
+    theta = exp_theta.acqp['ACQ_flip_angle']
+    two_theta = exp_two_theta.acqp['ACQ_flip_angle']
+    if 2*theta != two_theta:
+        return True, theta, two_theta
+    elif 2*theta == two_theta:
+        return False, theta, two_theta
 
 hoverable_pre_cat = st_functions.add_hoverable_title_with_image_inline(
     "Pre-CAT",  # The title text
@@ -304,6 +315,15 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     else:
                         st.error(f"DAMB1 2α folder does not exist: {two_theta_full_path}")
                         damb1_validation = False
+
+                    if os.path.isdir(theta_full_path) and os.path.isdir(two_theta_full_path):
+                        bad_flips, theta, two_theta = validate_double_angle(folder_path, theta_path, two_theta_path)  
+                        if bad_flips:
+                            # Pass the variables as a tuple to the formatting operator
+                            st.error("Incorrect flip angles: α = %i, 2α = %i" % (theta, two_theta))
+                        else:
+                            # 'else' is more appropriate here than 'elif not bad_flips'
+                            st.success("Flip angle validation successful! ")
             
             # Check if all fields are filled before enabling submit
             if all_fields_filled and (cest_validation and wassr_validation and damb1_validation):
