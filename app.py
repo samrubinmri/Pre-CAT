@@ -154,10 +154,11 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                 if not cest_path:
                     all_fields_filled = False  # CEST path is required
                 if cest_path:
-                    #col1, col2 = st.columns(2)
-                    #with col1:
+                    smoothing_filter = False
+                    moco_cest = False
+                    pca = False
+                    pixelwise = False
                     cest_type = st.radio('CEST acquisition type', ["Radial", "Rectilinear"], horizontal=True)
-                    #with col2:
                     st.markdown(
                     """
                     <style>
@@ -249,6 +250,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                 if not wassr_path:
                     all_fields_filled = False  # WASSR path is required
                 if wassr_path:
+                    moco_wassr = False
                     wassr_type = st.radio('WASSR acquisition type', ["Radial", "Rectilinear"], horizontal=True)
                     full_b0_mapping = st.toggle('Full B0 mapping', value=True, help="Fit B0 map for the entire image. Slower, but allows for full map visualization.") 
                     if "WASSR" in selection and wassr_type == "Radial":
@@ -645,4 +647,5 @@ if st.session_state.display_data == True:
         st.success("Images, plots, and raw data saved at **%s**" % save_path)
 
 if st.button("Reset"):
-    st.error("To reset and resubmit, please refresh the page.")
+    clear_session_state()
+    st.rerun()
