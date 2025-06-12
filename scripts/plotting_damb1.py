@@ -15,6 +15,10 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy import ndimage
 
 def plot_damb1(session_state):
+    save_path = session_state.submitted_data["save_path"]
+    image_path = os.path.join(save_path, 'Images')
+    if not os.path.isdir(image_path):
+        os.makedirs(image_path)
     b1_fits = session_state.processed_data['b1_fits']
     if 'WASSR' and 'CEST' not in session_state.submitted_data['selection']:
         fig, ax = plt.subplots(1, 1, figsize=(8, 8))    
@@ -67,8 +71,13 @@ def plot_damb1(session_state):
 
         fig.tight_layout(rect=[0, 0, 1, 0.95])
         st.pyplot(fig)
+        plt.savefig(os.path.join(image_path, 'B1_Maps.png'), dpi=300, bbox_inches="tight")
 
 def plot_damb1_aha(session_state):
+    save_path = session_state.submitted_data["save_path"]
+    plot_path = os.path.join(save_path, 'Plots')
+    if not os.path.isdir(plot_path):
+        os.makedirs(plot_path)
     b1_fits = session_state.processed_data['b1_fits']
     reference = 'cest' if 'CEST' in session_state.submitted_data['selection'] else 'wassr'
     ref_img = session_state.recon[reference]['m0']
@@ -99,6 +108,8 @@ def plot_damb1_aha(session_state):
     ax.tick_params(labelsize=14)
     fig.tight_layout()
 
+    plot_file = os.path.join(plot_path, 'B1_Boxplot.png')
+    fig.savefig(plot_file, dpi=300)
     st.pyplot(fig)
 
 
