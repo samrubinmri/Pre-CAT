@@ -128,9 +128,9 @@ def motion_correction(ksp, traj, method, experiment_type):
 # ==============================================================================
 # Denoising Function
 # ==============================================================================
-def denoise_data(image_stack, pca_method):
+def denoise_data(image_stack):
     """
-    Denoises a stack of images using PCA.
+    Denoises a stack of images using Global PCA.
     
     Args:
         image_stack (np.array): A 3D array of images (height, width, n_offsets).
@@ -138,26 +138,10 @@ def denoise_data(image_stack, pca_method):
     Returns:
         np.array: The denoised 3D image stack.
     """
-
+    
+    # --- Reshape the data for PCA ---
     height, width, n_offsets_s = image_stack.shape
-    if pca_method == "Global":
-        # --- Reshape the data for PCA ---
-        data_matrix = image_stack.reshape((height * width, n_offsets_s))
-
-    elif pca_method == "Tissue":
-        from skimage.filters import threshold_otsu
-        from skimage.morphology import closing, disk
-        from skimage.measure import label 
-        # --- Generate tissue mask automatically from reference image
-        ref_image = image_stack[:,:,0]
-        threshold = threshold_otsu(ref_image)
-        initial_mask = ref_image > threshold
-        selem = disk(5)
-        closed_mask = closing(initial_mask, selem)
-        labels = label(closed_mask)
-        largest_label = np.argmax(np.bincount(labels.flat)[1:]) + 1
-        final_mask = labels == largest_label
-        data_matrix = image_stack[final_mask]
+    data_matrix = image_stack.reshape((height * width, n_offsets_s))
 
     # --- Apply PCA and find optimal components ---
     pca = PCA()
@@ -206,9 +190,8 @@ def pre_processing(session_state, experiment_type):
     motion_corrected_stack = motion_correction(ksp, traj, method, experiment_type)
     
     # 2. Denoising
-    if experiment_type == 'cest' and session_state.submitted_data["pca"]["on_off"] == True:
-        pca_method = session_state.submitted_data["pca"]["roi"]
-        final_denoised_stack = denoise_data(motion_corrected_stack, pca_method)
+    if experiment_type == 'cest' and session_state.submitted_data["pca"] == True:
+        final_denoised_stack = denoise_data(motion_corrected_stack)
         study = {"imgs": final_denoised_stack, "offsets": offsets}
 
     else:
