@@ -135,6 +135,5 @@ def plot_wassr(image, session_state):
         cbar.set_label('B$_0$ Shift (ppm)', fontname='Arial', fontsize=16)
         ax.axis('off')
 
-    st.subheader("B0 Map")
     st.pyplot(fig)
     plt.savefig(os.path.join(image_path, 'B0_Map_Comparison.png'), dpi=300, bbox_inches="tight")

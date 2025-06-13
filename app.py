@@ -148,16 +148,6 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
         all_fields_filled = True  # Flag to track if all fields are filled
     
         if folder_path and os.path.isdir(folder_path):
-            # Ensure Data folder exists within the main path
-            data_folder = os.path.join(folder_path, "Data")
-            if not os.path.isdir(data_folder):
-                os.makedirs(data_folder)
-            
-            # Create folder for save_path within Data
-            save_full_path = os.path.join(data_folder, save_path)
-            if not os.path.isdir(save_full_path):
-                os.makedirs(save_full_path)
-            save_path = save_full_path  # Overwrite save_path with the full path
             
             # CEST validation
             if "CEST" in selection:
@@ -332,6 +322,16 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                 else:
                     if st.button("Submit"):
                         st.session_state.is_submitted = True
+                        # Ensure Data folder exists within the main path
+                        data_folder = os.path.join(folder_path, "Data")
+                        if not os.path.isdir(data_folder):
+                            os.makedirs(data_folder)
+                        
+                        # Create folder for save_path within Data
+                        save_full_path = os.path.join(data_folder, save_path)
+                        if not os.path.isdir(save_full_path):
+                            os.makedirs(save_full_path)
+                        save_path = save_full_path  # Overwrite save_path with the full path
                         st.session_state.submitted_data = {
                             "folder_path": folder_path,
                             "save_path": save_path,
