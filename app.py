@@ -155,7 +155,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                 if not cest_path:
                     all_fields_filled = False  # CEST path is required
                 if cest_path:
-                    smoothing_filter = False
+                    smoothing_filter = True
                     moco_cest = False
                     pca = False
                     pixelwise = False
