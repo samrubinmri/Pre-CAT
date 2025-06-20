@@ -185,16 +185,27 @@ def pre_processing(session_state, experiment_type):
     method = exp.method
     offsets = np.round(method["Cest_Offsets"] / (method["PVM_FrqWork"][0]), 2)
     
+
     # --- Run the Pipeline ---
-    # 1. Motion Correction
-    motion_corrected_stack = motion_correction(ksp, traj, method, experiment_type)
-    
-    # 2. Denoising
-    if experiment_type == 'cest' and session_state.submitted_data["pca"] == True:
+    # accounts for PCA and Motion Correction to be independant of each other
+    if experiment_type == 'cest' and session_state.submitted_data["moco_cest"] == True  and session_state.submitted_data["pca"] == True :
+        motion_corrected_stack = motion_correction(ksp, traj, method, experiment_type)
         final_denoised_stack = denoise_data(motion_corrected_stack)
         study = {"imgs": final_denoised_stack, "offsets": offsets}
-
-    else:
+    elif experiment_type == 'cest' and session_state.submitted_data["moco_cest"] == True and session_state.submitted_data["pca"] == False:
+        motion_corrected_stack = motion_correction(ksp, traj, method, experiment_type)
         study = {"imgs": motion_corrected_stack, "offsets": offsets}
-    
+    elif experiment_type == 'cest' and session_state.submitted_data["moco_cest"] == False and session_state.submitted_data["pca"] == True:
+        # No motion correction, but denoising: need to reconstruct per-offset
+        points, n_spokes, n_coils, n_offsets = ksp.shape
+        recon_stack = []
+        for offset_idx in range(n_offsets):
+            ksp_offset = ksp[:, :, :, offset_idx]
+            traj_offset = traj  # assuming same traj for all offsets
+            ksp_for_recon = np.expand_dims(ksp_offset, axis=0)
+            img = recon(ksp_for_recon, traj_offset)
+            recon_stack.append(img)
+        recon_stack = np.stack(recon_stack, axis=-1)
+        denoised_image_stack = denoise_data(recon_stack)
+        study = {"imgs": denoised_image_stack, "offsets": offsets}
     return study

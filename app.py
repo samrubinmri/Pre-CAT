@@ -183,12 +183,11 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     )
                     if "CEST" in selection and cest_type == "Radial":
                         moco_cest = st.toggle('Motion correction (CEST)', help="Correct bulk motion by discarding spokes based on projection images.")
-                        if moco_cest:
-                            pca = st.toggle('Z-spectral denoising', help="Z-spectral denoising with principal component analysis. This is a *global* method using Malinowskis empirical indicator function.")
+                        pca = st.toggle('Z-spectral denoising', help="Z-spectral denoising with principal component analysis. This is a *global* method using Malinowskis empirical indicator function.")
                     pixelwise = st.toggle(
                         'Pixelwise mapping', help="Accuracy is highly dependent on field homogeneity.")
                     if pixelwise:
-                        smoothing_filter = st.toggle('Median smoothing filter', help="Apply a median filter to smooth contrast maps.")
+                        smoothing_filter = st.toggle('Median smoothing filter', help="Apply a median filter to smooth contrast maps.", value=True)
                     if anatomy == "Other":
                         reference = st.toggle(
                             'Additional reference image', help="Use this option to load an additional reference image for ROI(s)/masking. By default, the unsaturated (S0/M0) image is used.")
@@ -433,10 +432,10 @@ if st.session_state.is_submitted:
                     ## Add ability to rotate rectilinear data
             elif cest_type == 'Radial':
                 if st.session_state.recon['cest'] is None:
-                    if st.session_state.submitted_data["moco_cest"] == False:
+                    if st.session_state.submitted_data["moco_cest"] == False and st.session_state.submitted_data["pca"] == False:
                         data_cest = load_study.recon_bart(cest_path, folder_path)
                         st.session_state.recon['cest'] = data_cest
-                    elif st.session_state.submitted_data["moco_cest"] == True:
+                    elif st.session_state.submitted_data["moco_cest"] == True or st.session_state.submitted_data["pca"] == True:
                         data_cest = pre_processing.pre_processing(st.session_state, 'cest')
                         st.session_state.recon['cest'] = data_cest
             if 'rotation_stage' not in st.session_state:
