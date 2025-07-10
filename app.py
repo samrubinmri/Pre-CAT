@@ -77,9 +77,20 @@ def validate_double_angle(directory, theta_path, two_theta_path):
     elif 2*theta == two_theta:
         return False, theta, two_theta
 
+def validate_fp_quesp(directory, quesp_path, t1_path):
+    """Check to make sure the sequence is actually fp_EPI""" # Can remove when additional sequences are added
+    exp_quesp = BrukerMRI.ReadExperiment(directory, quesp_path)
+    exp_t1 = BrukerMRI.ReadExperiment(directory, t1_path)
+    check_quesp = exp_quesp.method['Method']
+    check_t1 = exp_t1.method['Method']
+    if check_quesp != "<User:fp_EPI>" or check_t1 != "<Bruker:RAREVTR>":
+        return True, check_quesp, check_t1 
+    else:
+        return False, check_quesp, check_t1
+
 hoverable_pre_cat = st_functions.add_hoverable_title_with_image_inline(
     "Pre-CAT",  # The title text
-    "https://i.ibb.co/gMQ7MCb/Subject-4.png"  # Replace with your image URL
+    "https://i.ibb.co/gMQ7MCb/Subject-4.png" 
 )
 
 # Combine the static title and hoverable title into one header
@@ -129,7 +140,7 @@ Weigand-Whittier J, Wendland M, Lam B, et al. *Ungated, plug-and-play cardiac CE
     st.write("Please add **[Pre-CAT]** to the subject line of your email.")
 
 with st.expander("Load data", expanded = not st.session_state.is_submitted):
-    options = ["CEST", "WASSR", "DAMB1"]
+    options = ["CEST", "QUESP", "WASSR", "DAMB1"]
     organs = ["Cardiac", "Other"]
     col1, col2 = st.columns((1,1))
     with col1:
@@ -143,6 +154,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
         
         # Initialize validation flags
         cest_validation = True
+        quesp_validation = True
         wassr_validation = True
         damb1_validation = True
         all_fields_filled = True  # Flag to track if all fields are filled
@@ -244,7 +256,39 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     else:
                         st.error(f"CEST folder does not exist: {cest_full_path}")
                         cest_validation = False
-    
+
+        # QUESP validation
+        if "QUESP" in selection:
+            quesp_path = st.text_input('Input QUESP experiment number', help="Currently, only QUESP experiments run using the 'fp_EPI' sequence are supported.")
+            t1_path = st.text_input('Input T1 mapping experiment number', help="Currently, only VTR RARE T1 mapping is supported.")
+            if quesp_path and t1_path:
+                quesp_type = st.radio('QUESP analysis type', ["Standard (MTRasym)", "Inverse (MTRrex)"], horizontal=True)
+                if not quesp_type:
+                    all_fields_filled = False
+                quesp_full_path = os.path.join(folder_path, quesp_path)
+                t1_full_path = os.path.join(folder_path, t1_path)
+                quesp_folder_exists = os.path.isdir(quesp_full_path)
+                t1_folder_exists = os.path.isdir(t1_full_path)
+                if not quesp_folder_exists:
+                    st.error(f"QUESP folder does not exist: {quesp_full_path}")
+                    quesp_validation = False
+                if not t1_folder_exists:
+                    st.error(f"T1 map folder does not exist: {t1_full_path}")
+                    quesp_validation = False
+                if quesp_folder_exists and t1_folder_exists:
+                    st.success("QUESP and T1 map folders found!")
+                    bad_method, check_quesp, check_t1 = validate_fp_quesp(folder_path, quesp_path, t1_path)
+                    if bad_method:
+                        quesp_validation = False
+                        if check_quesp != "<User:fp_EPI>":
+                            st.error(f"Incorrect QUESP method detected: **{check_quesp}**. Only **<User:fp_EPI>** is supported.")
+                        if check_t1 != "<Bruker:RAREVTR>":
+                            st.error(f"Incorrect T1 mapping method detected: **{check_t1}**. Only **<Bruker:RAREVTR>** is supported.")
+                    else:
+                        st.success("Method validation successful!")
+            else:
+                all_fields_filled = False
+
             # WASSR validation
             if "WASSR" in selection:
                 wassr_path = st.text_input('Input WASSR experiment number')
@@ -257,7 +301,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     if "WASSR" in selection and wassr_type == "Radial":
                         moco_wassr = st.toggle('Motion correction (WASSR)', help="Correct bulk motion by discarding spokes based on projection images.")
                     if not wassr_type:
-                        all_fields_filled = False  # WASSR acquisition type is required
+                        all_fields_filled = False  
                     wassr_full_path = os.path.join(folder_path, wassr_path)
                     if os.path.isdir(wassr_full_path):
                         if wassr_type == "Rectilinear" and "traj" in os.listdir(wassr_full_path):
@@ -312,11 +356,10 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                             # Pass the variables as a tuple to the formatting operator
                             st.error("Incorrect flip angles: α = %i, 2α = %i" % (theta, two_theta))
                         else:
-                            # 'else' is more appropriate here than 'elif not bad_flips'
                             st.success("Flip angle validation successful! ")
             
             # Check if all fields are filled before enabling submit
-            if all_fields_filled and (cest_validation and wassr_validation and damb1_validation):
+            if all_fields_filled and (cest_validation and wassr_validation and damb1_validation and quesp_validation):
                 if 'reference' in locals() and reference and reference_validation == False:
                     st.error("Please validate the additional reference image before submitting.")
                 else:
@@ -352,6 +395,9 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                         if "DAMB1" in selection:
                             st.session_state.submitted_data['theta_path'] = theta_path
                             st.session_state.submitted_data['two_theta_path'] = two_theta_path
+                        if "QUESP" in selection:
+                            st.session_state.submitted_data['quesp_path'] = quesp_path
+                            st.session_state.submitted_data['t1_path'] = t1_path
                             
                         st.rerun()
             else:
