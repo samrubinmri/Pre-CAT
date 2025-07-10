@@ -157,7 +157,10 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
         quesp_validation = True
         wassr_validation = True
         damb1_validation = True
-        all_fields_filled = True  # Flag to track if all fields are filled
+        all_fields_filled = True  
+
+        if not folder_path or not save_path:
+            all_fields_filled = False
     
         if folder_path and os.path.isdir(folder_path):
             
@@ -257,37 +260,41 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                         st.error(f"CEST folder does not exist: {cest_full_path}")
                         cest_validation = False
 
-        # QUESP validation
-        if "QUESP" in selection:
-            quesp_path = st.text_input('Input QUESP experiment number', help="Currently, only QUESP experiments run using the 'fp_EPI' sequence are supported.")
-            t1_path = st.text_input('Input T1 mapping experiment number', help="Currently, only VTR RARE T1 mapping is supported.")
-            if quesp_path and t1_path:
-                quesp_type = st.radio('QUESP analysis type', ["Standard (MTRasym)", "Inverse (MTRrex)"], horizontal=True)
-                if not quesp_type:
-                    all_fields_filled = False
-                quesp_full_path = os.path.join(folder_path, quesp_path)
-                t1_full_path = os.path.join(folder_path, t1_path)
-                quesp_folder_exists = os.path.isdir(quesp_full_path)
-                t1_folder_exists = os.path.isdir(t1_full_path)
-                if not quesp_folder_exists:
-                    st.error(f"QUESP folder does not exist: {quesp_full_path}")
+            # QUESP validation
+            if "QUESP" in selection:
+                if anatomy == 'Cardiac':
                     quesp_validation = False
-                if not t1_folder_exists:
-                    st.error(f"T1 map folder does not exist: {t1_full_path}")
-                    quesp_validation = False
-                if quesp_folder_exists and t1_folder_exists:
-                    st.success("QUESP and T1 map folders found!")
-                    bad_method, check_quesp, check_t1 = validate_fp_quesp(folder_path, quesp_path, t1_path)
-                    if bad_method:
-                        quesp_validation = False
-                        if check_quesp != "<User:fp_EPI>":
-                            st.error(f"Incorrect QUESP method detected: **{check_quesp}**. Only **<User:fp_EPI>** is supported.")
-                        if check_t1 != "<Bruker:RAREVTR>":
-                            st.error(f"Incorrect T1 mapping method detected: **{check_t1}**. Only **<Bruker:RAREVTR>** is supported.")
+                    st.error("QUESP analysis is only supported for non-cardiac ROIs at this time.")
+                else:
+                    quesp_path = st.text_input('Input QUESP experiment number', help="Currently, only QUESP experiments run using the 'fp_EPI' sequence are supported.")
+                    t1_path = st.text_input('Input T1 mapping experiment number', help="Currently, only VTR RARE T1 mapping is supported.")
+                    if quesp_path and t1_path:
+                        quesp_type = st.radio('QUESP analysis type', ["Standard (MTRasym)", "Inverse (MTRrex)"], horizontal=True)
+                        if not quesp_type:
+                            all_fields_filled = False
+                        quesp_full_path = os.path.join(folder_path, quesp_path)
+                        t1_full_path = os.path.join(folder_path, t1_path)
+                        quesp_folder_exists = os.path.isdir(quesp_full_path)
+                        t1_folder_exists = os.path.isdir(t1_full_path)
+                        if not quesp_folder_exists:
+                            st.error(f"QUESP folder does not exist: {quesp_full_path}")
+                            quesp_validation = False
+                        if not t1_folder_exists:
+                            st.error(f"T1 map folder does not exist: {t1_full_path}")
+                            quesp_validation = False
+                        if quesp_folder_exists and t1_folder_exists:
+                            st.success("QUESP and T1 map folders found!")
+                            bad_method, check_quesp, check_t1 = validate_fp_quesp(folder_path, quesp_path, t1_path)
+                            if bad_method:
+                                quesp_validation = False
+                                if check_quesp != "<User:fp_EPI>":
+                                    st.error(f"Incorrect QUESP method detected: **{check_quesp}**. Only **<User:fp_EPI>** is supported.")
+                                if check_t1 != "<Bruker:RAREVTR>":
+                                    st.error(f"Incorrect T1 mapping method detected: **{check_t1}**. Only **<Bruker:RAREVTR>** is supported.")
+                            else:
+                                st.success("Method validation successful!")
                     else:
-                        st.success("Method validation successful!")
-            else:
-                all_fields_filled = False
+                         all_fields_filled = False
 
             # WASSR validation
             if "WASSR" in selection:
@@ -398,6 +405,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                         if "QUESP" in selection:
                             st.session_state.submitted_data['quesp_path'] = quesp_path
                             st.session_state.submitted_data['t1_path'] = t1_path
+                            st.session_state.submitted_data['quesp_type'] = quesp_type
                             
                         st.rerun()
             else:
@@ -438,6 +446,8 @@ if st.session_state.is_submitted:
                         "spectra":None,
                         "fits":None,
                         "maps":None}
+            if 'QUESP' in st.session_state.submitted_data['selection']:
+                st.session_state.processed_data["quesp_fits"] = None
             if 'WASSR' in st.session_state.submitted_data['selection']:
                 st.session_state.processed_data["wassr_fits"] = None
                 st.session_state.processed_data["wassr_full_map"] = None
