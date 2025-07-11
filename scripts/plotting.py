@@ -131,38 +131,31 @@ def show_segmentation(image, session_state):
     plt.savefig(image_path + '/AHA_Segmentation.png', dpi = 300, bbox_inches="tight")
     
 def show_rois(image, session_state):
-    masks = session_state.user_geometry["masks"]  # Retrieve the masks dictionary
+    masks = session_state.user_geometry["masks"]
     save_path = session_state.submitted_data["save_path"]
     image_path = os.path.join(save_path, 'Images')
     if not os.path.isdir(image_path):
         os.makedirs(image_path)
-    colors = plt.cm.get_cmap('tab20', len(masks))  # Generate unique colors for each ROI
-    segmented = np.zeros((image.shape[0], image.shape[1], 3), dtype=np.uint8)  # Initialize RGB array for segmentation
-    # Iterate through ROIs and apply colors
+    colors = plt.cm.get_cmap('tab20', len(masks))
+    segmented = np.zeros((image.shape[0], image.shape[1], 3), dtype=np.uint8)
     for i, (label, mask) in enumerate(masks.items()):
         y_indices, x_indices = np.where(mask)
-        segmented[y_indices, x_indices] = (np.array(colors(i)[:3]) * 255).astype(np.uint8)  # Apply color
-    # Zoom into the region based on the combined mask with a margin of ±20 pixels
-    all_y_indices, all_x_indices = np.where(np.any(list(masks.values()), axis=0))
-    x_min, x_max = max(np.min(all_x_indices) - 20, 0), min(np.max(all_x_indices) + 20, image.shape[1])
-    y_min, y_max = max(np.min(all_y_indices) - 20, 0), min(np.max(all_y_indices) + 20, image.shape[0])
-    # Set up subplots for the original image and segmentation overlay
-    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
-    #ax.imshow(image[y_min:y_max, x_min:x_max], cmap='gray')  # Display cropped original image
-    #ax.imshow(segmented[y_min:y_max, x_min:x_max], alpha=0.5)  # Overlay segmentation with transparency
-    ax.imshow(image, cmap='gray') # Uncropped
+        segmented[y_indices, x_indices] = (np.array(colors(i)[:3]) * 255).astype(np.uint8)
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.imshow(image, cmap='gray')
     ax.imshow(segmented, alpha=0.5)
     # Create legend for ROIs
     legend_elements = [
-        Patch(facecolor=np.array(colors(i)[:3]), edgecolor='black', label=label) for i, label in enumerate(masks.keys())
+        Patch(facecolor=np.array(colors(i)[:3]), edgecolor='black', label=label) 
+        for i, label in enumerate(masks.keys())
     ]
-    ax.legend(handles=legend_elements, loc="center left", bbox_to_anchor=(1, 0.5), fontsize=12)
-    # Remove axis labels
+    ax.legend(handles=legend_elements, loc="center left", bbox_to_anchor=(1, 0.5), fontsize=15)
     ax.axis('off')
-    # Display the figure in Streamlit
-    st.subheader('ROIs')
+    ax.set_title('ROI Key', fontsize=28, fontweight='bold')
+    # Add tight_layout for consistent spacing
+    fig.tight_layout()
     st.pyplot(fig)
-    plt.savefig(image_path + '/ROIs.png', dpi = 300, bbox_inches="tight")
+    plt.savefig(os.path.join(image_path, 'ROIs.png'), dpi=300, bbox_inches="tight")
 
 def plot_zspec(session_state):
     fits = session_state.processed_data['fits']

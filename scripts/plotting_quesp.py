@@ -5,53 +5,62 @@ Created on Thu Jul 10 18:23:03 2025
 
 @author: jonah
 """
-
+import os
 import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-def plot_t1_map(t1_fits, reference_image, masks):
+def plot_t1_map(t1_fits, reference_image, masks, save_path):
     """
     Reconstructs and plots the T1 map from pixel-wise fit results.
-    This version is corrected to work with the new data format.
     """
-    # Create an empty map to be filled with fitted T1 values
     t1_map = np.full(reference_image.shape, np.nan)
     
-    # Reconstruct the T1 map using coordinates from the masks
-    for roi_label, t1_values in t1_fits.items():
+    # Reconstruct the T1 map from the fitted data
+    for roi_label, fit_data in t1_fits.items():
         if roi_label in masks:
-            # Get the coordinates for the current ROI
             y_coords, x_coords = np.where(masks[roi_label])
-            
-            # Fill in the T1 map with the fitted values
             for i, (y, x) in enumerate(zip(y_coords, x_coords)):
-                if i < len(t1_values):
-                    t1_map[y, x] = t1_values[i]
+                if i < len(fit_data):
+                    t1_map[y, x] = fit_data[i]
             
-    # Create a combined mask for plotting
     combined_mask = np.zeros_like(reference_image, dtype=bool)
     for mask in masks.values():
         combined_mask = np.logical_or(combined_mask, mask)
 
-    # Plotting logic remains the same
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.imshow(reference_image, cmap='gray')
     
-    t1_map_masked = np.ma.masked_where(~combined_mask, t1_map)
-    overlay = ax.imshow(t1_map_masked, cmap='plasma', alpha=0.9, vmin=0, vmax=np.nanmax(t1_map))
+    valid_t1_values = t1_map[combined_mask]
+    vmin, vmax = (np.nanpercentile(valid_t1_values, [5, 95]) if np.any(valid_t1_values) else (0, 1000))
     
-    cbar = fig.colorbar(overlay, ax=ax, fraction=0.046, pad=0.04)
+    t1_map_masked = np.ma.masked_where(~combined_mask, t1_map)
+    overlay = ax.imshow(t1_map_masked, cmap='plasma', alpha=0.9, vmin=vmin, vmax=vmax)
+    
+    # Create a dedicated axis for the colorbar so it doesn't shrink the plot
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    cbar = fig.colorbar(overlay, cax=cax)
+
     cbar.set_label('T₁ (ms)', fontsize=24, fontweight='bold')
     cbar.ax.tick_params(labelsize=18)
     
     ax.axis('off')
     ax.set_title('T₁ Map', fontsize=28, fontweight='bold')
+    
+    # Use tight_layout after creating all axes elements
     fig.tight_layout()
     st.pyplot(fig)
 
-def plot_quesp_maps(quesp_fits, masks, reference_image):
+    # Save
+    image_path = os.path.join(save_path, 'Images')
+    if not os.path.isdir(image_path):
+    	os.makedirs(image_path)
+    plt.savefig(os.path.join(image_path, 'T1_Maps.png'), dpi=300, bbox_inches="tight")
+
+def plot_quesp_maps(quesp_fits, masks, reference_image, save_path):
     """
     Reconstructs and plots fb, kb, and R² maps for each fitted pool,
     using robust percentile-based colormaps to handle outliers.
@@ -95,10 +104,10 @@ def plot_quesp_maps(quesp_fits, masks, reference_image):
         
         # Calculate robust color limits using percentiles to ignore outliers
         valid_fb = fb_map[combined_mask]
-        fb_vmin, fb_vmax = (np.nanpercentile(valid_fb, [1, 99]) if np.any(valid_fb) else (0, 0.1))
+        fb_vmin, fb_vmax = (np.nanpercentile(valid_fb, [5, 95]) if np.any(valid_fb) else (0, 0.1))
 
         valid_kb = kb_map[combined_mask]
-        kb_vmin, kb_vmax = (np.nanpercentile(valid_kb, [1, 99]) if np.any(valid_kb) else (0, 2000))
+        kb_vmin, kb_vmax = (np.nanpercentile(valid_kb, [5, 95]) if np.any(valid_kb) else (0, 2000))
         
         # Plotting the three maps
         fig, axs = plt.subplots(1, 3, figsize=(24, 8))
@@ -108,17 +117,21 @@ def plot_quesp_maps(quesp_fits, masks, reference_image):
         fb_masked = np.ma.masked_where(~combined_mask, fb_map)
         axs[0].imshow(reference_image, cmap='gray')
         im0_overlay = axs[0].imshow(fb_masked, cmap='viridis', alpha=0.9, vmin=fb_vmin, vmax=fb_vmax)
-        axs[0].set_title('Proton Fraction (fb)', fontsize=24, fontweight='bold')
+        axs[0].set_title('Proton Volume Fraction (f$_b$)', fontsize=24, fontweight='bold')
         axs[0].axis('off')
-        fig.colorbar(im0_overlay, ax=axs[0], fraction=0.046, pad=0.04).set_label('f$_{b}$')
+        fb_cbar = fig.colorbar(im0_overlay, ax=axs[0], fraction=0.046, pad=0.04)
+        fb_cbar.set_label('f$_{b}$', fontsize=24, fontweight='bold')
+        fb_cbar.ax.tick_params(labelsize=18)
 
         # Plot kb map
         kb_masked = np.ma.masked_where(~combined_mask, kb_map)
         axs[1].imshow(reference_image, cmap='gray')
         im1_overlay = axs[1].imshow(kb_masked, cmap='magma', alpha=0.9, vmin=kb_vmin, vmax=kb_vmax)
-        axs[1].set_title('Exchange Rate (kb)', fontsize=24, fontweight='bold')
+        axs[1].set_title('Exchange Rate (k$_b$)', fontsize=24, fontweight='bold')
         axs[1].axis('off')
-        fig.colorbar(im1_overlay, ax=axs[1], fraction=0.046, pad=0.04).set_label('k$_{b}$ (s⁻¹)')
+        kb_cbar = fig.colorbar(im1_overlay, ax=axs[1], fraction=0.046, pad=0.04)
+        kb_cbar.set_label('k$_{b}$ (s$^{-1}$)', fontsize=24, fontweight='bold')
+        kb_cbar.ax.tick_params(labelsize=18)
         
         # Plot R² map (R² is naturally bounded between 0 and 1)
         r2_masked = np.ma.masked_where(~combined_mask, r2_map)
@@ -126,32 +139,54 @@ def plot_quesp_maps(quesp_fits, masks, reference_image):
         im2_overlay = axs[2].imshow(r2_masked, cmap='cividis', vmin=0, vmax=1)
         axs[2].set_title('Fit Quality (R²)', fontsize=24, fontweight='bold')
         axs[2].axis('off')
-        fig.colorbar(im2_overlay, ax=axs[2], fraction=0.046, pad=0.04).set_label('R²')
+        r2_cbar = fig.colorbar(im2_overlay, ax=axs[2], fraction=0.046, pad=0.04)
+        r2_cbar.set_label('$R^2$', fontsize=24, fontweight='bold')
+        r2_cbar.ax.tick_params(labelsize=18)
 
         plt.tight_layout(rect=[0, 0, 1, 0.95])
         st.pyplot(fig)
 
+        # Save
+        image_path = os.path.join(save_path, 'Images')
+        if not os.path.isdir(image_path):
+        	os.makedirs(image_path)
+        plt.savefig(os.path.join(image_path, f'{pool_name}_QUESP_Maps.png'), dpi=300, bbox_inches="tight")
 
-def calculate_quesp_stats(quesp_fits):
+
+def calculate_quesp_stats(quesp_fits, t1_fits):
     """
     Calculates statistics (mean, std) for each ROI and chemical pool,
-    excluding the top and bottom 1% of data to remove outliers.
+    including T1 values, and excludes outliers.
     """
     stats_list = []
     
-    # The structure of quesp_fits is {roi: {pool: {param: [values]}}}
     for roi_label, pools in quesp_fits.items():
-        for pool_name, params in pools.items():
+        
+        # --- HIGHLIGHTED CHANGE ---
+        # Calculate T1 stats directly from the list of values
+        if roi_label in t1_fits:
+            # t1_fits[roi_label] is now the list of T1 values
+            t1_values = np.array(t1_fits[roi_label])
+            t1_valid = t1_values[~np.isnan(t1_values)]
+            if t1_valid.size > 0:
+                t1_p5, t1_p95 = np.percentile(t1_valid, [5, 95])
+                t1_filtered = t1_valid[(t1_valid >= t1_p5) & (t1_valid <= t1_p95)]
+                t1_mean = np.mean(t1_filtered)
+                t1_std = np.std(t1_filtered)
+            else:
+                t1_mean, t1_std = np.nan, np.nan
+        else:
+            t1_mean, t1_std = np.nan, np.nan
+        # --- END CHANGE ---
             
-            # --- HIGHLIGHTED CHANGE ---
-            # Filter each parameter list to exclude outliers before calculating stats
+        for pool_name, params in pools.items():
             
             # Filter fb_values
             fb_values = np.array(params['fb_values'])
             fb_valid = fb_values[~np.isnan(fb_values)]
             if fb_valid.size > 0:
-                fb_p1, fb_p99 = np.percentile(fb_valid, [1, 99])
-                fb_filtered = fb_valid[(fb_valid >= fb_p1) & (fb_valid <= fb_p99)]
+                fb_p5, fb_p95 = np.percentile(fb_valid, [5, 95])
+                fb_filtered = fb_valid[(fb_valid >= fb_p5) & (fb_valid <= fb_p95)]
                 fb_mean = np.mean(fb_filtered)
                 fb_std = np.std(fb_filtered)
             else:
@@ -161,20 +196,20 @@ def calculate_quesp_stats(quesp_fits):
             kb_values = np.array(params['kb_values'])
             kb_valid = kb_values[~np.isnan(kb_values)]
             if kb_valid.size > 0:
-                kb_p1, kb_p99 = np.percentile(kb_valid, [1, 99])
-                kb_filtered = kb_valid[(kb_valid >= kb_p1) & (kb_valid <= kb_p99)]
+                kb_p5, kb_p95 = np.percentile(kb_valid, [5, 95])
+                kb_filtered = kb_valid[(kb_valid >= kb_p5) & (kb_valid <= kb_p95)]
                 kb_mean = np.mean(kb_filtered)
                 kb_std = np.std(kb_filtered)
             else:
                 kb_mean, kb_std = np.nan, np.nan
 
-            # R² is already bounded, so no need to filter
             r2_mean = np.nanmean(params['r2_values'])
-            # --- END CHANGE ---
 
             stats_list.append({
                 'ROI': roi_label,
                 'Pool': pool_name,
+                'T1a Mean (ms)': t1_mean,
+                'T1a Std Dev (ms)': t1_std,
                 'fb Mean': fb_mean,
                 'fb Std Dev': fb_std,
                 'kb Mean (s⁻¹)': kb_mean,
