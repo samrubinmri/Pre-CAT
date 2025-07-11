@@ -742,7 +742,6 @@ if st.session_state.display_data == True:
             if st.session_state.submitted_data['pixelwise'] == True:
                 plotting.pixelwise_mapping(image, st.session_state)
             plotting.plot_zspec(st.session_state)
-            st_functions.save_raw(st.session_state)
             if st.session_state.submitted_data['organ'] == 'Cardiac': 
                 rmse = st.session_state.processed_data["fits"]["Anterior"]["RMSE"]
                 st.info(f'**Anterior fit RMSE:** {rmse*100:.3f}%')  
@@ -754,13 +753,18 @@ if st.session_state.display_data == True:
             t1_fits = st.session_state.processed_data.get('t1_fits')
             masks = st.session_state.user_geometry.get('masks')
             reference_image = st.session_state.recon['quesp']['m0']
-
             if quesp_fits and t1_fits and masks and reference_image is not None:
-                plotting_quesp.plot_t1_map(t1_fits, reference_image, masks)
-                plotting_quesp.plot_quesp_maps(quesp_fits, masks, reference_image)
+                col1, col2 = st.columns(2)
+                with col1:
+                    plotting_quesp.plot_t1_map(t1_fits, reference_image, masks, save_path)
+                with col2:
+                    plotting.show_rois(reference_image, st.session_state)
+                plotting_quesp.plot_quesp_maps(quesp_fits, masks, reference_image, save_path)
                 st.subheader("QUESP Statistics")
-                stats_df = plotting_quesp.calculate_quesp_stats(quesp_fits)
+                stats_df = plotting_quesp.calculate_quesp_stats(quesp_fits, t1_fits)
                 st.dataframe(stats_df.style.format("{:.4f}"))
+                st_functions.save_df_to_csv(stats_df, save_path)
+                st.warning("Plots and statistics are displayed within the 5-95th percentile range per ROI.")
         if "WASSR" in submitted_data["selection"]:
             st.header('WASSR')
             if "CEST" not in submitted_data["selection"]:
@@ -773,6 +777,7 @@ if st.session_state.display_data == True:
             plotting_damb1.plot_damb1(st.session_state)
             if st.session_state.submitted_data['organ'] == 'Cardiac' and 'CEST' or 'WASSR' in session_state.submitted_data['selection']:
                 plotting_damb1.plot_damb1_aha(st.session_state)
+        st_functions.save_raw(st.session_state)
         st.success("Images, plots, and raw data saved at **%s**" % save_path)
 
 if st.button("Reset"):

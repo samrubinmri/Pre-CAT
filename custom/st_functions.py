@@ -10,6 +10,7 @@ import streamlit as st
 import pickle
 import os
 import base64
+import pandas as pd
 
 def get_img_as_base64(file):
     """Reads an image file and returns it as a base64 encoded string."""
@@ -209,3 +210,9 @@ def save_raw(session_state):
     pickle_path = os.path.join(file_path, "raw_data.pkl")
     with open(pickle_path, "wb") as f:
         pickle.dump(dict(session_state), f)
+
+def save_df_to_csv(dataframe, save_path):
+    data_path = os.path.join(save_path, 'Raw')
+    if not os.path.isdir(data_path):
+        os.makedirs(data_path)
+    dataframe.to_csv(os.path.join(data_path, 'QUESP.csv'), index=False)        
