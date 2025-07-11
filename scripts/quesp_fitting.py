@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jul 10 12:58:21 2025
+
+@author: jonah
+"""
+import numpy as np
+from scipy.optimize import curve_fit
+from sklearn.metrics import r2_score
+import pandas as pd
+import streamlit as st
+
+pool_dict = {
+    'Cr': 2.0,
+    'PCr': 2.6,
+    'Amide': 3.5,
+    'Amine': 2.5,
+    'Glutamate': 3.0
+}
+
+def fit_quesp_map(quesp_data, t1_pixel_fits, masks, fit_type):
+    """
+    Performs a pixel-wise QUESP fit for each ROI, with a single unified progress bar.
+    """
+    def standard_model(b1, r1, tp, fb, kb):
+        gamma = 2.675221e8
+        omega = gamma * b1
+        alpha = omega**2 / (omega**2 + kb**2)
+        return (fb * kb * alpha) / (r1 + fb * kb * alpha) * (1 - np.exp(-(r1 + fb * kb * alpha) * tp))
+
+    def inverse_model(b1, r1, fb, kb):
+        gamma = 2.675221e8
+        omega = gamma * b1
+        return 1 / r1 * fb * kb * omega**2 / (omega**2 + kb**2)
+
+    if not quesp_data:
+        st.error("QUESP data is empty. Cannot perform fit.")
+        return {}
+
+    df = pd.DataFrame(quesp_data['mtr_maps'])
+    unique_offsets = df['offset'].unique()
+    
+    results_by_roi = {}
+    
+    # Pre-calculate the total number of fits for the progress bar
+    total_fits = sum(len(t1_pixel_fits.get(label, [])) for label in masks) * len(unique_offsets)
+    if total_fits == 0:
+        st.warning("No pixels to fit for QUESP analysis.")
+        return {}
+
+    progress_bar = st.progress(0, text="Starting QUESP fitting...")
+    fit_counter = 0
+
+    # Prepare data for each chemical pool once to be efficient
+    pools_data = {}
+    for offset in unique_offsets:
+        pool_name = next((pool for pool, off in pool_dict.items() if off == offset), f"{offset} ppm")
+        offset_df = df[df['offset'] == offset]
+        pools_data[pool_name] = {
+            'b1_values': offset_df['b1'].values * 1e-6,
+            'tp': offset_df['time'].iloc[0] * 1e-3,
+            'mtr_asym_stack': np.stack(offset_df['mtr_asym'].values, axis=-1),
+            'mtr_rex_stack': np.stack(offset_df['mtr_rex'].values, axis=-1)
+        }
+        # Initialize results structure
+        for roi_label in masks:
+            if roi_label not in results_by_roi:
+                results_by_roi[roi_label] = {}
+            results_by_roi[roi_label][pool_name] = {'fb_values': [], 'kb_values': [], 'r2_values': []}
+
+    # Iterate through each ROI
+    for roi_label, mask in masks.items():
+        if roi_label not in t1_pixel_fits:
+            continue
+
+        y_coords, x_coords = np.where(mask)
+        t1_values_for_roi = t1_pixel_fits[roi_label]
+
+        if fit_type == 'Inverse (MTRrex)':
+            # Use the mean T1 of the current ROI (in seconds)
+            t1_mean_s = np.nanmean(np.array(t1_values_for_roi) * 1e-3)
+            # Use the saturation time (tp) from the first pool for the check
+            tp_check = next(iter(pools_data.values()))['tp']
+            
+            if t1_mean_s and tp_check < 3 * t1_mean_s:
+                st.warning(f"For **{roi_label}**, saturation may not be at steady-state (tp = {tp_check:.2f} s, Mean T₁ = {t1_mean_s:.2f} s). The inverse model is most accurate when tp > {3 * t1_mean_s:.2f} s.")
+        # Iterate through each pixel in the current ROI
+        for i in range(len(y_coords)):
+            y, x = y_coords[i], x_coords[i]
+            t1_val_ms = t1_values_for_roi[i]
+
+            # Perform the fit for each chemical pool for the current pixel
+            for pool_name, data in pools_data.items():
+                fit_counter += 1
+                progress_bar.progress(fit_counter / total_fits, text=f"Fitting {pool_name} in {roi_label}...")
+
+                if np.isnan(t1_val_ms) or t1_val_ms == 0:
+                    results_by_roi[roi_label][pool_name]['fb_values'].append(np.nan)
+                    results_by_roi[roi_label][pool_name]['kb_values'].append(np.nan)
+                    results_by_roi[roi_label][pool_name]['r2_values'].append(np.nan)
+                    continue
+                
+                r1_pixel = 1.0 / (t1_val_ms * 1e-3)
+
+                if fit_type == 'Standard (MTRasym)':
+                    curve = data['mtr_asym_stack'][y, x, :]
+                    model_to_fit = lambda b1, fb, kb: standard_model(b1, r1_pixel, data['tp'], fb, kb)
+                else:
+                    curve = data['mtr_rex_stack'][y, x, :]
+                    model_to_fit = lambda b1, fb, kb: inverse_model(b1, r1_pixel, fb, kb)
+                
+                try:
+                    popt, _ = curve_fit(
+                        model_to_fit, data['b1_values'], curve,
+                        p0=[0.01, 1000], bounds=([0, 0.1], [10, 5000])
+                    )
+                    fb, kb = popt
+                    r2 = r2_score(curve, model_to_fit(data['b1_values'], fb, kb))
+                    
+                    results_by_roi[roi_label][pool_name]['fb_values'].append(fb)
+                    results_by_roi[roi_label][pool_name]['kb_values'].append(kb)
+                    results_by_roi[roi_label][pool_name]['r2_values'].append(r2)
+
+                except RuntimeError:
+                    results_by_roi[roi_label][pool_name]['fb_values'].append(np.nan)
+                    results_by_roi[roi_label][pool_name]['kb_values'].append(np.nan)
+                    results_by_roi[roi_label][pool_name]['r2_values'].append(np.nan)
+    
+    progress_bar.empty()
+    st.success("QUESP fitting complete!")
+
+    return results_by_roi
+
+
+def fit_t1_map(t1_data, masks):
+    # T1 model
+    def t1_model(tr, m0, t1):
+        return m0 * (1 - np.exp(-tr / t1))
+    # Get images 
+    images = t1_data['imgs']
+    # Get TRs
+    trs = t1_data['trs']
+    # New, empty dictionary for T1 values
+    pixelwise = {}
+    all_coords = []
+
+    for label, mask in masks.items():
+    	coords = np.argwhere(mask)
+    	all_coords.extend([(label, tuple(coord)) for coord in coords])
+
+    progress_bar = st.progress(0, text="Fitting T₁ map...")
+    total = len(all_coords)
+    if total == 0:
+    	progress_bar.progress(1.0)
+    	return {}
+
+    progress_counter = 0
+
+    for label in masks:
+    	pixelwise[label] = []
+
+    for label, (i,j) in all_coords:
+    	signal_curve = images[i, j, :]
+    	m0_guess = np.max(signal_curve)
+    	t1_guess = 300.0
+    	try:
+    		popt, _ = curve_fit(
+    			f=t1_model,
+    			xdata=trs,
+    			ydata=signal_curve,
+    			p0=[m0_guess, t1_guess],
+    			bounds=([0,0], [np.inf, np.inf]))
+    		t1 = popt[1]
+    	except RuntimeError:
+    		t1 = np.nan
+
+    	pixelwise[label].append(t1)
+    	progress_counter += 1
+    	progress_bar.progress(progress_counter / total, text="Fitting T₁ map...")
+
+    progress_bar.progress(1.0, text="T₁ map fitting complete.")
+    progress_bar.empty()
+    return pixelwise
+    

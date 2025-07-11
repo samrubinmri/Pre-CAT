@@ -63,6 +63,74 @@ def recon_bart(num, directory):
     study = {"imgs": imgs, "offsets": offsets}
     return study
 
+def recon_quesp(num, directory):
+    data = bruker.ReadExperiment(directory, num)
+    # Get images
+    images = data.proc_data
+    # Get experimental parameters
+    freq = data.method['PVM_FrqWork'][0]
+    powers = data.method['Fp_SatPows']
+    times = data.method['Fp_SatDur']
+    offsets = data.method['Fp_SatOffset']
+    offsets_ppm = np.round(offsets / freq, 2)
+    # Identify reference images
+    THRESHOLD_PPM = 15
+    ref_index = np.where((offsets_ppm > THRESHOLD_PPM) | (powers == 0))[0]
+    # Apply normalization, FINE FOR NOW, may want to change later
+    for i in range(len(ref_index)):
+        m0 = images[:, :, ref_index[i]]
+        if i < len(ref_index) - 1:
+            next_index = ref_index[i + 1]
+        else:
+            next_index = images.shape[2]
+        for j in range(ref_index[i] + 1, next_index):
+            images[:, :, j] /= m0
+    images = np.nan_to_num(images)
+    # Calculate MTRasym/MTRrex
+    mtr_maps = calc_mtr(images, powers, times, offsets_ppm)
+    # Get reference
+    reference = images[:,:,ref_index[0]]
+    study = {"mtr_maps": mtr_maps, "m0": reference}
+    return study
+
+def calc_mtr(images, powers, times, offsets_ppm):
+    mtr_maps = []
+    # Find unique sat powers and offsets
+    unique_powers = sorted([p for p in np.unique(powers) if p > 0])
+    positive_offsets = sorted([o for o in np.unique(offsets_ppm) if o > 0])
+    # Iterate through powers and calculate MTRasym maps
+    for power in unique_powers:
+        for pos_offset in positive_offsets:
+            pos_idx = np.where((powers == power) & (offsets_ppm == pos_offset))[0]
+            neg_idx = np.where((powers == power) & (offsets_ppm == -pos_offset))[0]
+            # Extract images
+            pos_img = images[:,:,pos_idx]
+            neg_img = images[:,:,neg_idx]
+            # Sat time for image
+            time = times[pos_idx][0]
+            # Calculate MTRasym and MTRrex images
+            mtr_asym_img = np.squeeze(neg_img - pos_img)
+            mtr_rex_img = np.squeeze(1/pos_img - 1/neg_img)
+            map_data = {
+                    'mtr_asym': mtr_asym_img, 
+                    'mtr_rex': mtr_rex_img,
+                    'b1': power, 
+                    'time': time,
+                    'offset': pos_offset
+                }
+            # Append the dictionary to the list of results
+            mtr_maps.append(map_data)
+    return mtr_maps
+
+def recon_t1map(num, directory):
+    data = bruker.ReadExperiment(directory, num)
+    # Get images
+    images = data.proc_data
+    # Get experimental parameters
+    trs = data.method['MultiRepTime']
+    study = {"imgs": images, "trs": trs}
+    return study
+
 def recon_damb1(session_state):
     directory = st.session_state.submitted_data['folder_path']
     theta_path = st.session_state.submitted_data['theta_path']
