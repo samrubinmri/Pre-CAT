@@ -8,7 +8,7 @@ Created on Tue Jan  7 12:35:44 2025
 
 import streamlit as st
 import os
-from scripts import load_study, pre_processing, draw_rois, cest_fitting, plotting, plotting_wassr, plotting_damb1, BrukerMRI
+from scripts import load_study, pre_processing, draw_rois, cest_fitting, quesp_fitting, plotting, plotting_quesp, plotting_wassr, plotting_damb1, BrukerMRI
 from custom import st_functions
 from pathlib import Path
 
@@ -429,6 +429,9 @@ if st.session_state.is_submitted:
                 st.session_state.recon["wassr"] = None
             if 'DAMB1' in st.session_state.submitted_data['selection']:
                 st.session_state.recon["damb1"] = None
+            if 'QUESP' in st.session_state.submitted_data['selection']:
+                st.session_state.recon["quesp"] = None
+                st.session_state.recon["t1"] = None
         if "user_geometry" not in st.session_state:
             st.session_state.user_geometry = {
                 "rotations": None,
@@ -448,6 +451,7 @@ if st.session_state.is_submitted:
                         "maps":None}
             if 'QUESP' in st.session_state.submitted_data['selection']:
                 st.session_state.processed_data["quesp_fits"] = None
+                st.session_state.processed_data["t1_fits"] = None
             if 'WASSR' in st.session_state.submitted_data['selection']:
                 st.session_state.processed_data["wassr_fits"] = None
                 st.session_state.processed_data["wassr_full_map"] = None
@@ -461,6 +465,8 @@ if st.session_state.is_submitted:
                 st.session_state.loading_done["wassr"] = False
             if 'DAMB1' in st.session_state.submitted_data['selection']:
                 st.session_state.loading_done["damb1"] = False
+            if 'QUESP' in st.session_state.submitted_data['selection']:
+                st.session_state.loading_done["quesp"] = False
         if "rot_done" not in st.session_state:
             st.session_state.rot_done = False
         if "drift_done" not in st.session_state:
@@ -473,13 +479,31 @@ if st.session_state.is_submitted:
                 st.session_state.drift_done["damb1"] = False
         if "rois_done" not in st.session_state:
             st.session_state.rois_done = False
-        # Retrieve submitted data
+        
         submitted_data = st.session_state.submitted_data
+        
+        # --- Helper flags to check if prerequisites are met ---
+        cest_ready = not ("CEST" in submitted_data["selection"]) or (
+            st.session_state.loading_done.get("cest") and
+            st.session_state.drift_done.get("cest") and
+            st.session_state.rois_done and
+            st.session_state.processed_data.get("fits") is not None
+        )
+        
+        quesp_ready = not ("QUESP" in submitted_data["selection"]) or (
+            st.session_state.processed_data.get("t1_fits") is not None and
+            st.session_state.processed_data.get("quesp_fits") is not None
+        )
+
+        wassr_ready = not ("WASSR" in submitted_data["selection"]) or (
+            st.session_state.drift_done.get("wassr") and
+            st.session_state.processed_data.get("wassr_fits") is not None
+        )
         ##--Logic for each experiment type--##
         ## CEST processing
         if "CEST" in submitted_data["selection"]:
-            cest_path = submitted_data.get("cest_path")  # Retrieve cest_path from submitted data
-            cest_type = submitted_data.get("cest_type")  # Retrieve cest_type from submitted data
+            cest_path = submitted_data.get("cest_path")  
+            cest_type = submitted_data.get("cest_type")  
             folder_path = submitted_data["folder_path"]
             if cest_type == 'Rectilinear':
                 if st.session_state.recon['cest'] is None:
@@ -538,13 +562,42 @@ if st.session_state.is_submitted:
                         cest_fitting.calc_spectra_pixelwise(imgs, st.session_state)
                         st.session_state.processed_data['pixelwise']['fits'] = cest_fitting.per_pixel(st.session_state)
                     st.success("Fitting complete (CEST)!")
+
+        ## QUESP processing
+        if "QUESP" in submitted_data["selection"] and cest_ready:
+            if st.session_state.recon['quesp'] is None:
+                quesp_path = submitted_data.get("quesp_path")
+                quesp_type = submitted_data.get("quesp_type")
+                t1_path = submitted_data.get("t1_path")
+                folder_path = submitted_data["folder_path"]
+                st.session_state.recon['quesp'] = load_study.recon_quesp(quesp_path, folder_path)
+                st.session_state.recon['t1'] = load_study.recon_t1map(t1_path, folder_path)
+                if st.session_state.recon['quesp'] and st.session_state.recon['t1']:
+                    st.session_state.loading_done['quesp'] = True
+            if st.session_state.loading_done['quesp'] == True and st.session_state.rois_done == False:
+                if st.session_state.reference is not None:
+                    reference = st.session_state.reference
+                else:
+                    reference = st.session_state.recon["quesp"]
+                draw_rois.draw_rois(st.session_state, reference, st.session_state.recon['quesp'])
+            elif st.session_state.rois_done == True:
+                if st.session_state.user_geometry['masks'] is None:
+                    image = st.session_state.recon['quesp']['m0']
+                    rois = st.session_state.user_geometry["rois"]
+                    st.session_state.user_geometry['masks'] = draw_rois.convert_rois_to_masks(image, rois)
+                    masks = st.session_state.user_geometry['masks']
+                if st.session_state.processed_data.get('t1_fits') is None:
+                    t1_data = st.session_state.recon.get('t1')
+                    st.session_state.processed_data["t1_fits"] = quesp_fitting.fit_t1_map(t1_data, masks)
+                    if st.session_state.processed_data.get('t1_fits') is not None:
+                        if st.session_state.processed_data.get('quesp_fits') is None:
+                            quesp_data = st.session_state.recon.get('quesp')
+                            masks = st.session_state.user_geometry['masks']
+                            t1_fits = st.session_state.processed_data['t1_fits']
+                            st.session_state.processed_data['quesp_fits'] = quesp_fitting.fit_quesp_map(quesp_data, t1_fits, masks, quesp_type)
+
         ## WASSR processing
-        if "WASSR" in submitted_data["selection"] and (
-        "CEST" not in submitted_data["selection"] or 
-        (st.session_state.loading_done.get("cest") and 
-        st.session_state.drift_done["cest"] and 
-        st.session_state.rois_done and 
-        st.session_state.processed_data.get("fits") is not None)):
+        if "WASSR" in submitted_data["selection"] and cest_ready and quesp_ready:
             wassr_path = submitted_data.get("wassr_path")  
             wassr_type = submitted_data.get("wassr_type")  
             folder_path = submitted_data["folder_path"]
@@ -611,25 +664,7 @@ if st.session_state.is_submitted:
                         st.session_state.processed_data['wassr_fits'] = cest_fitting.fit_wassr_masked(imgs, st.session_state)
                     st.success("Fitting complete (WASSR)!")
         ## DAMB1 processing
-        cest_selected = "CEST" in submitted_data["selection"]
-        wassr_selected = "WASSR" in submitted_data["selection"]
-        damb1_selected = "DAMB1" in submitted_data["selection"]
-        cest_ready = (
-            st.session_state.loading_done.get("cest") and
-            st.session_state.drift_done.get("cest") and
-            st.session_state.rois_done and
-            st.session_state.processed_data.get("fits") is not None
-        )
-        wassr_ready = (
-            st.session_state.drift_done.get("wassr") and
-            st.session_state.processed_data.get("wassr_fits") is not None
-        )
-        if damb1_selected and (
-            (cest_selected and wassr_selected and cest_ready and wassr_ready) or
-            (cest_selected and not wassr_selected and cest_ready) or
-            (not cest_selected and wassr_selected and wassr_ready) or
-            (not cest_selected and not wassr_selected)
-        ):
+        if "DAMB1" in submitted_data["selection"] and cest_ready and quesp_ready and wassr_ready:
             if 'rotation_stage' not in st.session_state:
                 st.session_state['rotation_stage'] = 'select_rotation'  # Stages: 'select_rotation', 'confirm_rotation', 'finalized'
             if 'selected_rotation' not in st.session_state:
@@ -672,6 +707,11 @@ if st.session_state.is_submitted:
         if submitted_data['pixelwise']:
             required_keys.append(st.session_state.processed_data['pixelwise']['fits'] is not None)
 
+    if 'QUESP' in submitted_data['selection']:
+        required_keys.extend([
+            st.session_state.processed_data.get('t1_fits') is not None,
+            st.session_state.processed_data.get('quesp_fits') is not None])
+
     if 'WASSR' in submitted_data['selection']:
         required_keys.extend([
             st.session_state.recon.get('wassr') is not None,
@@ -708,6 +748,19 @@ if st.session_state.display_data == True:
                 st.info(f'**Anterior fit RMSE:** {rmse*100:.3f}%')  
                 if rmse > 0.02:
                     st.error("High RMSE in anterior segment! Recommend examining and/or excluding this dataset!")
+        if "QUESP" in submitted_data["selection"]:
+            st.header('QUESP')
+            quesp_fits = st.session_state.processed_data.get('quesp_fits')
+            t1_fits = st.session_state.processed_data.get('t1_fits')
+            masks = st.session_state.user_geometry.get('masks')
+            reference_image = st.session_state.recon['quesp']['m0']
+
+            if quesp_fits and t1_fits and masks and reference_image is not None:
+                plotting_quesp.plot_t1_map(t1_fits, reference_image, masks)
+                plotting_quesp.plot_quesp_maps(quesp_fits, masks, reference_image)
+                st.subheader("QUESP Statistics")
+                stats_df = plotting_quesp.calculate_quesp_stats(quesp_fits)
+                st.dataframe(stats_df.style.format("{:.4f}"))
         if "WASSR" in submitted_data["selection"]:
             st.header('WASSR')
             if "CEST" not in submitted_data["selection"]:

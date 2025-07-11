@@ -146,7 +146,7 @@ def draw_rois(session_state, data, cest):
     img_height, img_width = np.shape(m0)
 
     # Desired canvas size
-    canvas_width = img_width*3 # Set desired width for the canvas
+    canvas_width = 600 # Set desired width for the canvas
     canvas_height = int(canvas_width * img_height / img_width)  # Maintain aspect ratio
 
     # Convert image to PIL object
@@ -272,7 +272,7 @@ def cardiac_roi(session_state, data, cest):
     img_height, img_width = np.shape(m0)
 
     # Desired canvas size
-    canvas_width = img_width*3  # Set desired width for the canvas
+    canvas_width = 600  # Set desired width for the canvas
     canvas_height = int(canvas_width * img_height / img_width)  # Maintain aspect ratio
 
     # Convert image to PIL object
