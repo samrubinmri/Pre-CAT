@@ -41,14 +41,15 @@ def initialize_session_state():
             "processing_done": False,
             "rois_done": False, # ROI drawing is a single event
             "fitting_done": [],
-        "log_messages": [],
-        },
+            },
         # Data storage
         "recon_data": {},
         "orientation_params": {"radial": None, "rectilinear": None},
         "processed_data": {},
         "user_geometry": {"rois": None, "masks": None, "aha": None},
         "fits": {},
+        # Log messages
+        "log_messages": [],
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -433,6 +434,7 @@ def do_data_submission():
 
 def do_processing_pipeline():
     """Manages the sequential processing pipeline for all experiment types."""
+    # Retrieve submitted experiment types 
     submitted = st.session_state.submitted_data
     selection = [s.lower() for s in submitted.get('selection', [])]
     # --- Stage 1: Reconstruction --- #
@@ -479,7 +481,7 @@ def do_processing_pipeline():
                     st.session_state.recon_data['quesp'] = load_study.recon_quesp(submitted['quesp_path'], submitted['folder_path'])
                     st.session_state.recon_data['t1'] = load_study.recon_t1map(submitted['t1_path'], submitted['folder_path'])
             st.session_state.pipeline_status['recon_done'] = True
-            st.success('All reconstruction complete!')
+            st_functions.message_logging("All reconstruction complete!")
     
     # --- Stage 2: Group experiments and orient each group --- #
     if st.session_state.pipeline_status.get('recon_done') and not st.session_state.pipeline_status.get('orientation_done', False):
@@ -513,7 +515,7 @@ def do_processing_pipeline():
         rectilinear_done = not rectilinear_exps or st.session_state.orientation_params.get('rectilinear') is not None
         if radial_done and rectilinear_done:
             st.session_state.pipeline_status['orientation_done'] = True
-            st.success("All orientations finalized!")
+            st_functions.message_logging("All orientations finalized!")
             st.rerun()
 
     # --- Stage 3: Apply transformations and corrections --- #
@@ -538,7 +540,7 @@ def do_processing_pipeline():
                     else: # DAMB1
                         st.session_state.processed_data[exp_type] = {"imgs": oriented, "nominal_flip": recon['nominal_flip']}
             st.session_state.pipeline_status['processing_done'] = True
-            st.success("All data transformed and corrected.")
+            st_functions.message_logging("All data transformed and corrected!")
             st.rerun()
 
     # --- Stage 4: ROI drawing --- #
@@ -559,6 +561,7 @@ def do_processing_pipeline():
         if rois:
             st.session_state.user_geometry['rois'] = rois
             st.session_state.pipeline_status['rois_done'] = True
+            st_functions.message_logging("ROI definition complete!")
             st.rerun()
         else:
             return
@@ -592,10 +595,23 @@ def do_processing_pipeline():
                 proc_data = st.session_state.processed_data['cest']
                 spectra = cest_fitting.calc_spectra(proc_data['imgs'], st.session_state.user_geometry)
                 st.session_state.fits['cest'] = cest_fitting.fit_all_rois(spectra, proc_data['offsets'], submitted.get('custom_contrasts'))
-                
                 if submitted.get('pixelwise'):
                     pixel_spectra = cest_fitting.calc_spectra_pixelwise(proc_data['imgs'], st.session_state.user_geometry['masks'])
                     st.session_state.fits['cest_pixelwise'] = cest_fitting.fit_all_pixels(pixel_spectra, proc_data['offsets'], submitted.get('custom_contrasts'))
+                if submitted['organ'] == 'Cardiac':
+                    cest_fits = st.session_state.fits.get('cest', {})
+                    segments_to_check = ["Anterior", "Anteroseptal"] # Can be changed if needed
+                    for segment in segments_to_check:
+                        fit_data = cest_fits.get(segment)
+                        if fit_data:
+                            rmse = fit_data.get("RMSE")
+                            if rmse is not None and rmse > 0.02:
+                                st_functions.message_logging(f"Fit RMSE in {segment.lower()} segment > 2% (RMSE = {rmse*100:.3f}%)!", msg_type='warning')
+                                
+            if "quesp" in selection:
+                t1_fits = quesp_fitting.fit_t1_map(st.session_state.recon_data['t1'], masks)
+                st.session_state.fits['t1'] = t1_fits
+                st.session_state.fits['quesp'] = quesp_fitting.fit_quesp_map(st.session_state.processed_data['quesp'], t1_fits, masks, submitted.get('quesp_type'))
             
             if "wassr" in selection:
                 proc_data = st.session_state.processed_data['wassr']
@@ -608,12 +624,7 @@ def do_processing_pipeline():
                 proc_data = st.session_state.processed_data['damb1']
                 st.session_state.fits['damb1'] = cest_fitting.fit_b1(proc_data['imgs'], proc_data['nominal_flip'])
 
-            if "quesp" in selection:
-                t1_fits = quesp_fitting.fit_t1_map(st.session_state.recon_data['t1'], masks)
-                st.session_state.fits['t1'] = t1_fits
-                st.session_state.fits['quesp'] = quesp_fitting.fit_quesp_map(st.session_state.processed_data['quesp'], t1_fits, masks, submitted.get('quesp_type'))
-
-            st.success("All processing complete!")
+            st_functions.message_logging("All processing complete!")
             st.session_state.pipeline_status['fitting_done'] = True
             st.session_state.is_processed = True
             st.session_state.display_data = True
@@ -657,7 +668,7 @@ def display_results():
         stats_df = plotting_quesp.calculate_quesp_stats(st.session_state.fits['quesp'], st.session_state.fits['t1'])
         st.dataframe(stats_df.style.format("{:.4f}"))
         st_functions.save_df_to_csv(stats_df, save_path)
-        st.warning('Plots and statistics are displayed within the 5-95th percentile range per ROI.')
+        st.warning('Plot colorbars and statistics are displayed within the 5-95th percentile range per ROI.')
 
     if "WASSR" in submitted['selection']:
         st.header('WASSR Results')
@@ -674,6 +685,8 @@ def display_results():
             plotting_damb1.plot_damb1_aha(st.session_state.fits['damb1'], st.session_state.user_geometry['aha'], save_path)
 
     st_functions.save_raw(st.session_state)
+    if any(msg_type in ['warning', 'error'] for _, msg_type in st.session_state.log_messages):
+        st.error("**One or more issues were noted during processing. Please review the log in the 'Process data' expander.**")
     st.success(f"Images, plots, and raw data saved at **{save_path}**")
 
 # --- Main app --- #
@@ -700,6 +713,15 @@ def main():
         do_data_submission()
     if st.session_state.is_submitted:
         with st.expander("Process data", expanded=st.session_state.processing_active):
+            for msg, msg_type in st.session_state.get("log_messages", []):
+                if msg_type == 'success':
+                    st.success(msg)
+                elif msg_type == 'warning':
+                    st.warning(msg)
+                elif msg_type == 'error':
+                    st.error(msg)
+                else:
+                    st.info(msg)
             do_processing_pipeline()
     if st.session_state.is_processed:
         with st.expander("Display and save results", expanded=st.session_state.display_data):

@@ -10,6 +10,7 @@ from scipy.optimize import curve_fit
 from sklearn.metrics import r2_score
 import pandas as pd
 import streamlit as st
+from custom import st_functions
 
 # --- Constants --- #
 # Proton gyromagnetic ratio (rad/T/s)
@@ -83,7 +84,7 @@ def fit_quesp_map(quesp_data, t1_pixel_fits, masks, fit_type):
             # Use the saturation time (tp) from the first pool for the check
             tp_check = next(iter(pools_data.values()))['tp']
             if t1_mean_s and tp_check < 3 * t1_mean_s:
-                st.warning(f"For **{roi_label}**, saturation may not be at steady-state (tp = {tp_check:.2f} s, Mean T₁ = {t1_mean_s:.2f} s). The inverse model is most accurate when tp > {3 * t1_mean_s:.2f} s.")
+                st_functions.message_logging(f"For **{roi_label}**, saturation may not be at steady-state (tp = {tp_check:.2f} s, Mean T₁ = {t1_mean_s:.2f} s). The inverse model is most accurate when tp > {3 * t1_mean_s:.2f} s.", msg_type='warning')
         # Iterate through each pixel in the current ROI
         for i in range(len(y_coords)):
             y, x = y_coords[i], x_coords[i]
@@ -119,7 +120,7 @@ def fit_quesp_map(quesp_data, t1_pixel_fits, masks, fit_type):
                     results_by_roi[roi_label][pool_name]['kb_values'].append(np.nan)
                     results_by_roi[roi_label][pool_name]['r2_values'].append(np.nan)
     progress_bar.empty()
-    st.success("QUESP fitting complete!")
+    st_functions.message_logging("QUESP fitting complete!")
     return results_by_roi
 
 

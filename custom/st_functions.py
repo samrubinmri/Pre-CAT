@@ -13,16 +13,18 @@ import base64
 import pandas as pd
 
 def get_img_as_base64(file):
-    """Reads an image file and returns it as a base64 encoded string."""
+    """
+    Reads an image file and returns it as a base64 encoded string.
+    """
     with open(file, "rb") as f:
         data = f.read()
     return base64.b64encode(data).decode()
 
 def inject_custom_loader(gif_path):
-    """Injects CSS to replace the Streamlit status icon with a custom GIF."""
-    
+    """
+    Injects CSS to replace the Streamlit status icon with a custom GIF.
+    """
     img_base64 = get_img_as_base64(gif_path)
-    
     custom_loader_css = f"""
         <style>
             /* Target the container that holds the icon and text */
@@ -203,6 +205,9 @@ def inject_hover_email_css():
     st.markdown(hover_css, unsafe_allow_html=True)
         
 def save_raw(session_state):
+    """
+    Save session state to file.
+    """
     save_path = session_state.submitted_data["save_path"]
     file_path = os.path.join(save_path, "Raw")
     if not os.path.isdir(file_path):
@@ -212,7 +217,19 @@ def save_raw(session_state):
         pickle.dump(dict(session_state), f)
 
 def save_df_to_csv(dataframe, save_path):
+    """
+    Save QUESP dataframe to CSV.
+    """
     data_path = os.path.join(save_path, 'Raw')
     if not os.path.isdir(data_path):
         os.makedirs(data_path)
-    dataframe.to_csv(os.path.join(data_path, 'QUESP.csv'), index=False)        
+    dataframe.to_csv(os.path.join(data_path, 'QUESP.csv'), index=False)       
+
+def message_logging(message, msg_type='success'):
+    """
+    Prints success message and saves to session state.
+    """
+    if not isinstance(message, str):
+        str(message)
+    st.session_state.log_messages.append((message, msg_type))
+
