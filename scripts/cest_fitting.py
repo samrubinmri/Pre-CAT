@@ -104,7 +104,7 @@ def calc_spectra(imgs, user_geometry):
     Calculates the mean spectrum for each ROI based on user defined geometry.
     """
     spectra = {}
-    if 'aha' in user_geometry:
+    if user_geometry['aha']:
         # Cardiac logic
         labeled_segments = user_geometry['aha']
         for label, segment_coords in labeled_segments.items():
@@ -306,7 +306,7 @@ def fit_wassr_full(imgs, offsets, user_geometry):
     progress_bar.progress(1.0, text="WASSR B₀ fitting complete.")
     progress_bar.empty()
     pixelwise = {}
-    if 'aha' in user_geometry:
+    if user_geometry['aha']:
         masks_dict = user_geometry.get('aha', {})
         for label, coord_list in masks_dict.items():
             valid_coords = [c for c in coord_list if not np.isnan(b0_full_map[c[0], c[1]])]
@@ -325,7 +325,7 @@ def fit_wassr_masked(imgs, offsets, user_geometry):
     """
     n_interp = 1000
     pixelwise = {}
-    if 'aha' in user_geometry:
+    if user_geometry['aha']:
         masks_dict = user_geometry.get('aha', {})
         all_coords = [(label, coord) for label, coords_list in masks_dict.items() for coord in coords_list]
     else:
