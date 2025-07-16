@@ -19,7 +19,7 @@ def pixelwise_mapping(image, pixelwise_fits, user_geometry, custom_contrasts, sm
     """
     Generates and displays pixelwise CEST contrast maps.
     """
-    if 'aha' in user_geometry:
+    if user_geometry['aha']:
         masks = {"lv": user_geometry["masks"]["lv"]}
         y_indices, x_indices = np.where(masks["lv"])
         x_min, x_max = max(np.min(x_indices) - 20, 0), min(np.max(x_indices) + 20, masks["lv"].shape[1])

@@ -52,17 +52,17 @@ def plot_wassr(image, user_geometry, wassr_masked_fits, save_path, wassr_full_ma
     if wassr_full_map is not None:
         # Create the masked overlay from the full map
         masked_b0 = np.zeros_like(wassr_full_map, dtype=float)
-        if 'aha' in user_geometry:
+        if user_geometry['aha']:
             segment_masks = user_geometry["aha"]
             for label, coord_list in segment_masks.items():
                 for i, j in coord_list:
-                    masked_b0[i, j] = b0_full_map[i, j]
+                    masked_b0[i, j] = wassr_full_map[i, j]
         else:
             for mask in user_geometry["masks"].values():
                 masked_b0[mask] = wassr_full_map[mask]
 
         y_min, y_max, x_min, x_max = 0, image.shape[0], 0, image.shape[1]
-        if 'aha' in user_geometry:
+        if user_geometry['aha']:
             lv_mask = user_geometry["masks"]["lv"]
             y_indices, x_indices = np.where(lv_mask)
             x_min, x_max = max(np.min(x_indices) - 20, 0), min(np.max(x_indices) + 20, lv_mask.shape[1])
@@ -73,10 +73,10 @@ def plot_wassr(image, user_geometry, wassr_masked_fits, save_path, wassr_full_ma
         fig, axs = plt.subplots(1, 2, figsize=(12, 6))
         fig.suptitle('WASSR B$_0$ Map Visualization', fontsize=26, fontname='Arial', weight='bold')
         
-        vmin = np.nanmin(transparent_b0_overlay)
-        vmax = np.nanmax(transparent_b0_overlay)
+        v_abs_max = np.nanmax(np.abs(wassr_full_map))
+        vmin, vmax = -v_abs_max, v_abs_max
         
-        axs[0].imshow(b0_full_map, cmap='BrBG', vmin=vmin, vmax=vmax)
+        im0 = axs[0].imshow(wassr_full_map, cmap='BrBG', vmin=vmin, vmax=vmax)
         axs[0].set_title('Full B$_0$ Map', fontsize=20, fontname='Arial', weight='bold')
         axs[0].axis('off')
         
@@ -87,7 +87,7 @@ def plot_wassr(image, user_geometry, wassr_masked_fits, save_path, wassr_full_ma
 
         divider = make_axes_locatable(axs[1])
         cax = divider.append_axes("right", size="5%", pad=0.05)
-        cbar = fig.colorbar(im1, cax=cax)
+        cbar = fig.colorbar(im0, cax=cax)
         cbar.ax.tick_params(labelsize=14)
         cbar.set_label('B$_0$ Shift (ppm)', fontname='Arial', fontsize=16)
 
@@ -96,7 +96,7 @@ def plot_wassr(image, user_geometry, wassr_masked_fits, save_path, wassr_full_ma
     # Case 2: Only masked data is available
     else:
         b0_image = np.zeros_like(image, dtype='float')
-        if 'aha' in user_geometry:
+        if user_geometry['aha']:
             lv_mask = user_geometry["masks"]["lv"]
             y_indices, x_indices = np.where(lv_mask)
             x_min, x_max = max(np.min(x_indices) - 20, 0), min(np.max(x_indices) + 20, lv_mask.shape[1])
@@ -121,7 +121,9 @@ def plot_wassr(image, user_geometry, wassr_masked_fits, save_path, wassr_full_ma
         transparent_b0 = np.ma.masked_where(b0_image == 0, b0_image)
         fig, ax = plt.subplots(1, 1, figsize=(6, 6))
         ax.imshow(image[y_min:y_max, x_min:x_max], cmap='gray')
-        im = ax.imshow(transparent_b0[y_min:y_max, x_min:x_max], cmap='BrBG', alpha=0.9)
+        v_abs_max = np.nanmax(np.abs(transparent_b0))
+        vmin, vmax = -v_abs_max, v_abs_max
+        im = ax.imshow(transparent_b0[y_min:y_max, x_min:x_max], cmap='BrBG', alpha=0.9, vmin=vmin, vmax=vmax)
         ax.set_title('WASSR Map', fontsize=28, fontname='Arial', weight='bold')
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)

@@ -172,7 +172,7 @@ def do_data_submission():
     organs = ["Cardiac", "Other"]
     col1, col2 = st.columns((1,1))
     with col1:
-        selection = st.pills("Experiment type(s)", options, selection_mode="multi")
+        selection = st.multiselect("Experiment type(s)", options)
     with col2:
         anatomy = st.pills("ROI", organs)
     
@@ -627,9 +627,9 @@ def do_processing_pipeline():
             if "wassr" in selection:
                 proc_data = st.session_state.processed_data['wassr']
                 if submitted.get('full_b0_mapping'):
-                    st.session_state.fits['wassr'], st.session_state.fits['wassr_full_map'] = cest_fitting.fit_wassr_full(proc_data['imgs'], proc_data['offsets'], masks)
+                    st.session_state.fits['wassr'], st.session_state.fits['wassr_full_map'] = cest_fitting.fit_wassr_full(proc_data['imgs'], proc_data['offsets'], st.session_state.user_geometry)
                 else:
-                    st.session_state.fits['wassr'] = cest_fitting.fit_wassr_masked(proc_data['imgs'], proc_data['offsets'], masks)
+                    st.session_state.fits['wassr'] = cest_fitting.fit_wassr_masked(proc_data['imgs'], proc_data['offsets'], st.session_state.user_geometry)
 
             if "damb1" in selection:
                 proc_data = st.session_state.processed_data['damb1']
@@ -685,12 +685,12 @@ def display_results():
         st.header('WASSR Results')
         ref_image = st.session_state.processed_data['cest']['m0'] if 'cest' in st.session_state.processed_data else st.session_state.processed_data['wassr']['m0']
         plotting_wassr.plot_wassr(ref_image, st.session_state.user_geometry, st.session_state.fits.get('wassr'), save_path,st.session_state.fits.get('wassr_full_map'))
-        #if submitted['organ'] == 'Cardiac':
-            #plotting_wassr.plot_wassr_aha(st.session_state.fits['wassr'], save_path)
+        if submitted['organ'] == 'Cardiac':
+            plotting_wassr.plot_wassr_aha(st.session_state.fits['wassr'], save_path)
 
     if "DAMB1" in submitted['selection']:
         st.header('DAMB1 Results')
-        ref_image = st.session_state.processed_data.get('cest', {}).get('m0')
+        ref_image = st.session_state.processed_data['cest']['m0'] if 'cest' in st.session_state.processed_data else st.session_state.processed_data['wassr']['m0'] if 'wassr' in st.session_state.processed_data else None
         plotting_damb1.plot_damb1(st.session_state.fits['damb1'], ref_image, st.session_state.user_geometry, save_path)
         if submitted['organ'] == 'Cardiac':
             plotting_damb1.plot_damb1_aha(st.session_state.fits['damb1'], ref_image, st.session_state.user_geometry['aha'], save_path)

@@ -43,30 +43,30 @@ def plot_damb1(b1_fits, reference_image, user_geometry, save_path):
     b1_interp = ndimage.zoom(b1_fits, zoom=zoom_factors, order=1)
     
     # Apply mask based on organ type
-    if 'aha' in user_geometry:
-        lv_mask = user_geometry["masks"]["lv"]
-        y_indices, x_indices = np.where(lv_mask)
-        x_min, x_max = max(np.min(x_indices) - 20, 0), min(np.max(x_indices) + 20, lv_mask.shape[1])
-        y_min, y_max = max(np.min(y_indices) - 20, 0), min(np.max(y_indices) + 20, lv_mask.shape[0])
-        b1_interp *= lv_mask
+    if user_geometry['aha']:
+        combined_mask = user_geometry["masks"]["lv"]
+        y_indices, x_indices = np.where(combined_mask)
+        x_min, x_max = max(np.min(x_indices) - 20, 0), min(np.max(x_indices) + 20, combined_mask.shape[1])
+        y_min, y_max = max(np.min(y_indices) - 20, 0), min(np.max(y_indices) + 20, combined_mask.shape[0])
     else: # 'Other'
         combined_mask = np.zeros_like(b1_interp, dtype=bool)
         for mask in user_geometry['masks'].values():
             combined_mask |= mask
-        b1_interp *= combined_mask
         y_min, y_max = 0, b1_interp.shape[0]
         x_min, x_max = 0, b1_interp.shape[1]
 
-    transparent_b1 = np.ma.masked_where(b1_interp == 0, b1_interp)
+    transparent_b1 = np.ma.masked_where(~combined_mask, b1_interp)
+    v_abs_max = np.nanmax(np.abs(b1_fits))
+    vmin, vmax = -v_abs_max, v_abs_max
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
     fig.suptitle('$B_1$ Map Visualization', fontsize=26, fontname='Arial', weight='bold')
 
-    axs[0].imshow(b1_fits, cmap='RdBu')
+    axs[0].imshow(b1_fits, cmap='RdBu', vmin=vmin, vmax=vmax)
     axs[0].set_title('Raw $B_1$', fontsize=20, fontname='Arial', weight='bold')
     axs[0].axis('off')
 
     axs[1].imshow(reference_image[y_min:y_max, x_min:x_max], cmap='gray')
-    im1 = axs[1].imshow(transparent_b1[y_min:y_max, x_min:x_max], cmap='RdBu')
+    im1 = axs[1].imshow(transparent_b1[y_min:y_max, x_min:x_max], cmap='RdBu', alpha=0.9, vmin=vmin, vmax=vmax)
     axs[1].set_title('Interpolated on Reference', fontsize=20, fontname='Arial', weight='bold')
     axs[1].axis('off')
 
