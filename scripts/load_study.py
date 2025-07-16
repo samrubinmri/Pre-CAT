@@ -11,6 +11,7 @@ import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
 from scipy.interpolate import interpn
+from custom import st_functions
 
 if 'BART_TOOLBOX_PATH' in os.environ and os.path.exists(os.environ['BART_TOOLBOX_PATH']):
 	sys.path.append(os.path.join(os.environ['BART_TOOLBOX_PATH'], 'python'))
@@ -267,14 +268,16 @@ def show_rotation_ui(image_stack, exp_type):
         st.pyplot(fig)
         col1, col2 = st.columns(2)
         with col1:
-            if st.button('Finalize Orientation', key=f"submit_transform_{exp_type}"):
-                st.session_state[rot_stage_key] = 'finalized'
-                st.success(f"{exp_type} orientation finalized!")
-                st.rerun()
+            finalize_button = st.button('Finalize Orientation', key=f"submit_transform_{exp_type}")
         with col2:
-            if st.button('Go Back', key=f"retry_transform_{exp_type}"):
-                st.session_state[rot_stage_key] = 'select_transform'
-                st.rerun()
+            go_back_button = st.button('Go Back', key=f"retry_transform_{exp_type}")
+        if finalize_button:
+            st.session_state[rot_stage_key] = 'finalized'
+            st_functions.message_logging(f"{exp_type} orientation finalized!")
+            st.rerun()
+        if go_back_button:
+            st.session_state[rot_stage_key] = 'select_transform'
+            st.rerun()
     # 3. Return the transform values only when finalized
     if st.session_state[rot_stage_key] == 'finalized':
         return (st.session_state[selected_rot_key], st.session_state[flip_key])

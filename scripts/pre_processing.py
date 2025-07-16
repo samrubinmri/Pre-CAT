@@ -11,6 +11,7 @@ from scipy.ndimage import uniform_filter1d
 from sklearn.decomposition import PCA
 import scripts.BrukerMRI as bruker 
 from bart import bart 
+from custom import st_functions
 
 # --- Constants (tunable) --- #
 SPIKE_THRESHOLD_STD = 0.5
@@ -60,7 +61,8 @@ def motion_correction(ksp, traj, method, experiment_type):
         best_coil_info = max(coil_spike_info, key=lambda x: x['total_magnitude'])
         counts[index] = best_coil_info['num_spikes']
     N_to_remove = max(counts.values()) if counts else 0
-    st.warning(f"Motion correction will remove {N_to_remove} segments from each offset.")
+    st.warning(f"Motion correction will remove {N_to_remove} segments from each {experiment_type.upper()} offset image.")
+    st_functions.message_logging(f"Motion correction removed {N_to_remove} segments from each {experiment_type.upper()} offset image.", msg_type='info')
     filtered_images_list = []
     loading_bar = st.progress(0, text="Applying motion correction and reconstructing...")
     for offset_idx in range(n_offsets):
@@ -108,7 +110,8 @@ def denoise_data(image_stack):
         denominator = n_samples_m * ((n_features_n - (i-1))**5)
         indicator_values.append(np.sqrt(numerator / denominator) if denominator > 1e-9 else np.inf)
     n_components_to_keep = np.argmin(indicator_values) + 1
-    st.warning(f"  Denoising with {n_components_to_keep} components.")
+    st.warning(f"Denoising with {n_components_to_keep} components.")
+    st_functions.message_logging(f"Denoised with {n_components_to_keep} components.", msg_type='info')
     pca_denoising = PCA(n_components=n_components_to_keep)
     transformed_data = pca_denoising.fit_transform(data_matrix)
     denoised_data_matrix = pca_denoising.inverse_transform(transformed_data)

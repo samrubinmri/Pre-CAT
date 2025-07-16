@@ -493,6 +493,7 @@ def do_processing_pipeline():
                     st.session_state.recon_data['t1'] = load_study.recon_t1map(submitted['t1_path'], submitted['folder_path'])
             st.session_state.pipeline_status['recon_done'] = True
             st_functions.message_logging("All reconstruction complete!")
+            st.rerun()
     
     # --- Stage 2: Group experiments and orient each group --- #
     if st.session_state.pipeline_status.get('recon_done') and not st.session_state.pipeline_status.get('orientation_done', False):
@@ -556,23 +557,26 @@ def do_processing_pipeline():
 
     # --- Stage 4: ROI drawing --- #
     if st.session_state.pipeline_status.get('processing_done') and not st.session_state.pipeline_status.get('rois_done', False):
-        # Determine the best reference image for drawing ROIs
-        ref_img = None
-        if submitted.get('reference'):
-            ref_img = st.session_state.submitted_data['reference']
-        else:
-            primary_exp = selection[0]
-            processed_exp_data = st.session_state.processed_data[primary_exp]
-            if 'm0' in processed_exp_data:
-                ref_image = processed_exp_data['m0']
-            elif 'imgs' in processed_exp_data:
-                img_stack = processed_exp_data['imgs']
-                ref_image = img_stack[:, :, 0] if img_stack.ndim >= 3 else img_stack
-        rois = draw_rois.cardiac_roi(ref_image) if submitted['organ'] == 'Cardiac' else draw_rois.draw_rois(ref_image)
+        roi_canvas_placeholder = st.empty()
+        with roi_canvas_placeholder.container():
+            # Determine the best reference image for drawing ROIs
+            ref_img = None
+            if submitted.get('reference'):
+                ref_img = st.session_state.submitted_data['reference']
+            else:
+                primary_exp = selection[0]
+                processed_exp_data = st.session_state.processed_data[primary_exp]
+                if 'm0' in processed_exp_data:
+                    ref_image = processed_exp_data['m0']
+                elif 'imgs' in processed_exp_data:
+                    img_stack = processed_exp_data['imgs']
+                    ref_image = img_stack[:, :, 0] if img_stack.ndim >= 3 else img_stack
+            rois = draw_rois.cardiac_roi(ref_image) if submitted['organ'] == 'Cardiac' else draw_rois.draw_rois(ref_image)
         if rois:
             st.session_state.user_geometry['rois'] = rois
             st.session_state.pipeline_status['rois_done'] = True
             st_functions.message_logging("ROI definition complete!")
+            roi_canvas_placeholder.empty()
             st.rerun()
         else:
             return
