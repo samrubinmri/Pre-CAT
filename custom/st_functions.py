@@ -203,6 +203,55 @@ def inject_hover_email_css():
     </style>
     """
     st.markdown(hover_css, unsafe_allow_html=True)
+
+def inject_spinning_logo_css(logo_path):
+    """
+    Injects CSS to replace the default Streamlit spinner with a spinning logo.
+    """
+    logo_base64 = get_img_as_base64(logo_path)
+    
+    spinner_css = f"""
+        <style>
+            /* Define the spinning animation */
+            @keyframes spin {{
+                0% {{ transform: rotate(0deg); }}
+                100% {{ transform: rotate(360deg); }}
+            }}
+
+            /* --- THE DEFINITIVE FIX --- */
+
+            /* 1. Hide the default SVG spinner icon */
+            [data-testid="stSpinner"] svg {{
+                display: none;
+            }}
+
+            /* 2. Make the spinner's container a flexbox to align items horizontally */
+            [data-testid="stSpinner"] > div {{
+                display: flex;
+                align-items: center;
+                justify-content: flex-start;
+            }}
+
+            /* 3. Create the spinning logo as a new element before the text */
+            [data-testid="stSpinner"] > div::before {{
+                content: '';
+                display: inline-block;
+                width: 30px;
+                height: 30px;
+                margin-right: 0.5rem;  /* Space between logo and text */
+                
+                /* Apply the logo as the background */
+                background-image: url("data:image/png;base64,{logo_base64}");
+                background-size: contain;
+                background-repeat: no-repeat;
+                background-position: center;
+
+                /* Apply the spinning animation */
+                animation: spin 2s linear infinite;
+            }}
+        </style>
+    """
+    st.markdown(spinner_css, unsafe_allow_html=True)
         
 def save_raw(session_state):
     """
