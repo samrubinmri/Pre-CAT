@@ -8,6 +8,7 @@ Created on Tue Jan  7 12:35:44 2025
 # --- Imports --- #
 # Standard library imports
 import os 
+import time # Delete later
 from pathlib import Path 
 # Third-party imports
 import streamlit as st
@@ -18,6 +19,14 @@ from custom import st_functions
 # --- Constants for app setup --- #
 SITE_ICON = "./custom/icons/ksp.ico"
 LOADING_GIF_PATH = Path("custom/icons/loading.gif")
+
+# --- Test functions --- #
+def test_spinner():
+    """A simple function to test the Lottie spinner for a few seconds."""
+    # Use the same Lottie JSON you defined at the top of app.py
+    with st.spinner("Testing the CSS spinner for 3 seconds..."):
+        time.sleep(3)
+    st.success("Test complete!")
 
 # --- Session state management --- #
 def initialize_session_state():
@@ -607,7 +616,7 @@ def do_processing_pipeline():
                             rmse = fit_data.get("RMSE")
                             if rmse is not None and rmse > 0.02:
                                 st_functions.message_logging(f"Fit RMSE in {segment.lower()} segment > 2% (RMSE = {rmse*100:.3f}%)!", msg_type='warning')
-                                
+
             if "quesp" in selection:
                 t1_fits = quesp_fitting.fit_t1_map(st.session_state.recon_data['t1'], masks)
                 st.session_state.fits['t1'] = t1_fits
@@ -698,6 +707,7 @@ def main():
     st.set_page_config(page_title="Pre-CAT", initial_sidebar_state="expanded", page_icon=SITE_ICON)
     if LOADING_GIF_PATH.exists():
         st_functions.inject_custom_loader(LOADING_GIF_PATH)
+    st_functions.inject_spinning_logo_css(SITE_ICON)
     initialize_session_state()
     render_sidebar()
     hoverable_pre_cat = st_functions.add_hoverable_title_with_image_inline(
