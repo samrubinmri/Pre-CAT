@@ -43,7 +43,7 @@ def plot_damb1(b1_fits, reference_image, user_geometry, save_path):
     b1_interp = ndimage.zoom(b1_fits, zoom=zoom_factors, order=1)
     
     # Apply mask based on organ type
-    if user_geometry.get('organ') == 'Cardiac':
+    if 'aha' in user_geometry:
         lv_mask = user_geometry["masks"]["lv"]
         y_indices, x_indices = np.where(lv_mask)
         x_min, x_max = max(np.min(x_indices) - 20, 0), min(np.max(x_indices) + 20, lv_mask.shape[1])

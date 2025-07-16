@@ -458,7 +458,8 @@ def do_processing_pipeline():
                         st.session_state.recon_data['cest'] = pre_processing.run_radial_preprocessing(
                             submitted['folder_path'],
                             submitted['cest_path'],
-                            submitted.get('pca', False)
+                            submitted.get('pca', False),
+                            exp_type
                         )
                     elif cest_type == 'Radial':
                         st.session_state.recon_data['cest'] = load_study.recon_bart(
@@ -474,7 +475,8 @@ def do_processing_pipeline():
                         st.session_state.recon_data['wassr'] = pre_processing.run_radial_preprocessing(
                             submitted['folder_path'],
                             submitted['wassr_path'],
-                            False 
+                            False,
+                            exp_type 
                         )
                     elif wassr_type == 'Radial':
                         st.session_state.recon_data['wassr'] = load_study.recon_bart(
@@ -650,16 +652,16 @@ def display_results():
     if "CEST" in submitted['selection']:
         st.header('CEST Results')
         ref_image = st.session_state.processed_data['cest']['m0']
-        
+        mask = st.session_state.user_geometry['masks']['lv']
         if submitted['organ'] == 'Cardiac':
-            plotting.show_segmentation(ref_image, st.session_state.user_geometry['aha'], save_path)
+            plotting.show_segmentation(ref_image, mask, st.session_state.user_geometry['aha'], save_path)
         else:
             plotting.show_rois(ref_image, st.session_state.user_geometry['masks'], save_path)
         
         if submitted.get('pixelwise') and 'cest_pixelwise' in st.session_state.fits:
             plotting.pixelwise_mapping(
                 ref_image, st.session_state.fits['cest_pixelwise'], 
-                st.session_state.user_geometry['masks'], submitted['organ'],
+                st.session_state.user_geometry,
                 submitted.get('custom_contrasts'), submitted.get('smoothing_filter'), save_path
             )
 
@@ -682,16 +684,16 @@ def display_results():
     if "WASSR" in submitted['selection']:
         st.header('WASSR Results')
         ref_image = st.session_state.processed_data['cest']['m0'] if 'cest' in st.session_state.processed_data else st.session_state.processed_data['wassr']['m0']
-        plotting_wassr.plot_wassr(ref_image, st.session_state.fits.get('wassr_full_map'), st.session_state.user_geometry, save_path)
-        if submitted['organ'] == 'Cardiac':
-            plotting_wassr.plot_wassr_aha(st.session_state.fits['wassr'], save_path)
+        plotting_wassr.plot_wassr(ref_image, st.session_state.user_geometry, st.session_state.fits.get('wassr'), save_path,st.session_state.fits.get('wassr_full_map'))
+        #if submitted['organ'] == 'Cardiac':
+            #plotting_wassr.plot_wassr_aha(st.session_state.fits['wassr'], save_path)
 
     if "DAMB1" in submitted['selection']:
         st.header('DAMB1 Results')
         ref_image = st.session_state.processed_data.get('cest', {}).get('m0')
         plotting_damb1.plot_damb1(st.session_state.fits['damb1'], ref_image, st.session_state.user_geometry, save_path)
         if submitted['organ'] == 'Cardiac':
-            plotting_damb1.plot_damb1_aha(st.session_state.fits['damb1'], st.session_state.user_geometry['aha'], save_path)
+            plotting_damb1.plot_damb1_aha(st.session_state.fits['damb1'], ref_image, st.session_state.user_geometry['aha'], save_path)
 
     st_functions.save_raw(st.session_state)
     if any(msg_type in ['warning', 'error'] for _, msg_type in st.session_state.log_messages):

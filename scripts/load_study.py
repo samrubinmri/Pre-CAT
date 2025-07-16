@@ -147,13 +147,10 @@ def recon_t1map(num, directory):
     data = bruker.ReadExperiment(directory, num)
     return {"imgs": data.proc_data, "trs": data.method['MultiRepTime']}
 
-def recon_damb1(session_state):
+def recon_damb1(directory, theta_path, two_theta_path):
     """
     Reconstructs B1 maps from two double angle (DAMB1) experiments.
     """
-    directory = st.session_state.submitted_data['folder_path']
-    theta_path = st.session_state.submitted_data['theta_path']
-    two_theta_path = st.session_state.submitted_data['two_theta_path']
     exp_theta = bruker.ReadExperiment(directory, theta_path)
     exp_two_theta = bruker.ReadExperiment(directory, two_theta_path)
     theta = np.squeeze(exp_theta.proc_data)

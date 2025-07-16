@@ -17,7 +17,7 @@ SPIKE_THRESHOLD_STD = 0.5
 MOVING_AVG_WINDOW = 5
 
 # --- Helper functions --- #
-def _recon_single(ksp, traj):
+def recon(ksp, traj):
     """
     Function for reconstructing a single image using BART.
     """
@@ -115,7 +115,7 @@ def denoise_data(image_stack):
     return denoised_data_matrix.reshape((height, width, n_offsets_s))
 
 # --- Main pre-processing function --- #
-def run_radial_preprocessing(directory, num_exp, use_pca):
+def run_radial_preprocessing(directory, num_exp, use_pca, experiment_type = 'cest'):
     """
     Main pipeline for radial pre-processing.
     Loads data, performs motion correction, and optionally denoises.
@@ -128,7 +128,7 @@ def run_radial_preprocessing(directory, num_exp, use_pca):
     offsets = np.round(method["Cest_Offsets"] / (method["PVM_FrqWork"][0]), 2)
     
     # 2. Motion Correction
-    motion_corrected_stack = motion_correction(ksp, traj, method, 'cest') # Assuming this is for CEST
+    motion_corrected_stack = motion_correction(ksp, traj, method, experiment_type)
     
     # 3. Optional Denoising
     final_stack = motion_corrected_stack

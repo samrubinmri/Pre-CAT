@@ -123,7 +123,7 @@ def aha_segmentation(mask, ip_mask):
     labeled_segments['Anterolateral'] = segmented_indices[3]
     labeled_segments['Inferolateral'] = segmented_indices[4]
     labeled_segments['Inferior'] = segmented_indices[5]
-    session_state.user_geometry["aha"] = labeled_segments
+    return labeled_segments
 
 # --- Helper functions for the UI --- #    
 def get_base64_image(image_path):

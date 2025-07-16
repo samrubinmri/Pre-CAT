@@ -84,13 +84,13 @@ options = {'xtol': 1e-10, 'ftol': 1e-4, 'maxfev': 50}
 # --- Model definitions --- #
 def lorentzian(x, amp, fwhm, offset):
     num = amp * 0.25 * fwhm ** 2
-    Den = 0.25 * fwhm ** 2 + (x - offset) ** 2
+    den = 0.25 * fwhm ** 2 + (x - offset) ** 2
     return num / den
 
 def step_1_fit(x, *fit_parameters):
     water_fit = lorentzian(x, fit_parameters[0], fit_parameters[1], fit_parameters[2])
     mt_fit = lorentzian(x, fit_parameters[3], fit_parameters[4], fit_parameters[5])
-    fit = 1 - water_Fit - mt_Fit
+    fit = 1 - water_fit - mt_fit
     return fit
 
 def water_fit_correction(x, *fit_parameters):
@@ -133,11 +133,12 @@ def calc_spectra_pixelwise(imgs, masks):
         spectra_by_label[label] = pixel_spectra
     return spectra_by_label
 
-def two_step(spectra, offsets, custom_contrasts = None):
+def two_step(spectrum, offsets, custom_contrasts = None):
     """
     Performs the two-step Lorentzian fitting on a single spectrum.
     This is the core fitting logic.
     """
+    n_interp = 4000
     if custom_contrasts is None:
         custom_contrasts = ['Amide', 'Creatine', 'NOE (-3.5 ppm)', 'NOE (-1.6 ppm)']
     contrast_params = {
@@ -164,7 +165,7 @@ def two_step(spectra, offsets, custom_contrasts = None):
         if offsets[0] > 0:
             offsets = np.flip(offsets)
             spectrum = np.flip(spectrum)
-        fit_1, _ = curve_fit(Step_1_Fit, offsets, spectrum, p0=p0_corr, bounds=(lb_corr, ub_corr), **options)
+        fit_1, _ = curve_fit(step_1_fit, offsets, spectrum, p0=p0_corr, bounds=(lb_corr, ub_corr), **options)
         correction = fit_1[2]
         offsets_corrected = offsets - correction
         if 'Hydroxyl' in custom_contrasts:
@@ -188,7 +189,7 @@ def two_step(spectra, offsets, custom_contrasts = None):
         lorentzian_difference = 1 - (spectrum + background)
         step_1_fit_values = step_1_fit(offsets_corrected, *fit_1)
         step_1_rmse = np.sqrt(mean_squared_error(spectrum, step_1_fit_values))
-        fit_2, _ = curve_fit(Step_2_Fit, offsets_corrected, lorentzian_difference, p0=p0_2, bounds=(lb_2, ub_2), **options)
+        fit_2, _ = curve_fit(step_2_fit, offsets_corrected, lorentzian_difference, p0=p0_2, bounds=(lb_2, ub_2), **options)
         fit_curves = {}
         index = 0
         for contrast in custom_contrasts:
@@ -230,7 +231,7 @@ def fit_all_rois(spectra_by_roi, offsets, custom_contrasts):
     """
     fits = {}
     for roi, spectrum in spectra_by_roi.items():
-        fits[roi] = two_step_fit(spectrum, offsets, custom_contrasts)
+        fits[roi] = two_step(spectrum, offsets, custom_contrasts)
     return fits
 
 def fit_all_pixels(spectra_by_pixel, offsets, custom_contrasts):
@@ -245,7 +246,7 @@ def fit_all_pixels(spectra_by_pixel, offsets, custom_contrasts):
         progress_bar = st.progress(0, text=f"Fitting pixels in {label}...")
 
         for i, spectrum in enumerate(pixel_spectra):
-            fits_for_label.append(two_step_fit(spectrum, offsets, custom_contrasts))
+            fits_for_label.append(two_step(spectrum, offsets, custom_contrasts))
             progress_bar.progress((i + 1) / total_pixels)
         
         pixel_fits[label] = fits_for_label
@@ -296,9 +297,9 @@ def fit_wassr_full(imgs, offsets, user_geometry):
                 spectrum_interp = cubic_spline(offsets_interp)
                 min_idx = np.argmin(spectrum_interp)
                 p0_corr[2] = offsets_interp[min_idx]
-                Fit_1, _ = curve_fit(Step_1_Fit, offsets_interp, spectrum_interp, p0=p0_corr, bounds=(lb_corr, ub_corr))
-                Water_Fit = Lorentzian(offsets_interp, Fit_1[0], Fit_1[1], Fit_1[2])
-                b0_shift = offsets_interp[np.argmax(Water_Fit)]
+                fit_1, _ = curve_fit(step_1_fit, offsets_interp, spectrum_interp, p0=p0_corr, bounds=(lb_corr, ub_corr))
+                water_fit = lorentzian(offsets_interp, fit_1[0], fit_1[1], fit_1[2])
+                b0_shift = offsets_interp[np.argmax(water_fit)]
                 b0_full_map[i, j] = b0_shift
             except (RuntimeError, ValueError):
                 b0_full_map[i, j] = np.nan

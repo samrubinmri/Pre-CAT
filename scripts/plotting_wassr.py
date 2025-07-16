@@ -17,9 +17,7 @@ def plot_wassr_aha(wassr_aha_fits, save_path):
     plot_path = os.path.join(save_path, 'Plots')
     if not os.path.isdir(plot_path):
         os.makedirs(plot_path)
-
     fits = {k: v for k, v in wassr_aha_fits.items() if "lv" not in k.lower()}
-
     data = []
     for segment, b0_values in fits.items():
         for val in b0_values:
