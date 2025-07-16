@@ -7,6 +7,11 @@ Created on Tue Feb  6 11:44:38 2024
 """
 import os
 import sys
+import numpy as np
+import streamlit as st
+import matplotlib.pyplot as plt
+from scipy.interpolate import interpn
+from custom import st_functions
 
 if 'BART_TOOLBOX_PATH' in os.environ and os.path.exists(os.environ['BART_TOOLBOX_PATH']):
 	sys.path.append(os.path.join(os.environ['BART_TOOLBOX_PATH'], 'python'))
@@ -16,32 +21,39 @@ else:
 	raise RuntimeError("BART_TOOLBOX_PATH is not set correctly!")
 
 from bart import bart
-import numpy as np
-import streamlit as st
-
 import scripts.BrukerMRI as bruker
-import matplotlib.pyplot as plt
-from scipy.interpolate import interpn
 
+# --- Reconstruction and data loading functions --- #
 def load_bruker_img(num, directory):
+    """
+    Loads a single Bruker image stack directly (processed image data).
+    """
     data = bruker.ReadExperiment(directory, num)
     imgs = data.proc_data
-    imgs = np.rot90(imgs, k=2)
+    imgs = np.rot90(imgs, k=2) # Rotates image, may not be necessary 
     return imgs
     
 def recon_bruker(num, directory):
+    """
+    Loads CEST data from Bruker processed image data.
+    """
     data = bruker.ReadExperiment(directory, num)
     offsets = np.round(data.method["Cest_Offsets"]/data.method["PVM_FrqWork"][0],1)
     imgs = data.proc_data
     visu = data.visu
+    # Flips data to match raw (NU)FFT reconstruction, this DOES NOT ALWAYS WORK (return to this)
     orientation = np.array(visu['VisuCoreOrientation'].reshape(3,3))
-    flip_y = orientation[0, 1] < 0
+    flip_y = orientation[0, 1] < 0 
     if flip_y == True:
         imgs = np.flip(imgs, axis=1)
+    # End flipping
     study = {"imgs": imgs, "offsets": offsets}
     return study
 
 def recon_bart(num, directory):
+    """
+    Reconstructs radial CEST data using BART.
+    """
     data = bruker.ReadExperiment(directory, num)
     imgs = []
     offsets = np.round(data.method["Cest_Offsets"] / data.method["PVM_FrqWork"][0], 2)
@@ -55,7 +67,6 @@ def recon_bart(num, directory):
         img = bart(1, 'rss 8', img)
         img = np.abs(img)
         imgs.append(img)
-        # Update progress bar and text
         loading_bar.progress((i + 1) / len(offsets), text="Reconstructing images...")
         if i+1 == len(offsets):
             loading_bar.progress((i + 1) / len(offsets), text="Reconstruction complete.")
@@ -64,19 +75,31 @@ def recon_bart(num, directory):
     return study
 
 def recon_quesp(num, directory):
+    """
+    Retrieves and organizes QUESP processed image data.
+    """
+    # 1. Retrieve images and relevant parameters
     data = bruker.ReadExperiment(directory, num)
-    # Get images
     images = data.proc_data
-    # Get experimental parameters
     freq = data.method['PVM_FrqWork'][0]
     powers = data.method['Fp_SatPows']
     times = data.method['Fp_SatDur']
     offsets = data.method['Fp_SatOffset']
     offsets_ppm = np.round(offsets / freq, 2)
-    # Identify reference images
+    study = {"imgs": images, "powers": powers, "times": times, "offsets": offsets_ppm}
+    return study
+
+def process_quesp(recon_data):
+    """
+    Performs normalization steps on raw QUESP data.
+    """
+    images = recon_data["imgs"]
+    powers = recon_data["powers"]
+    times = recon_data["times"]
+    offsets_ppm = recon_data["offsets"]
+    # 1. Normalize
     THRESHOLD_PPM = 15
     ref_index = np.where((offsets_ppm > THRESHOLD_PPM) | (powers == 0))[0]
-    # Apply normalization, FINE FOR NOW, may want to change later
     for i in range(len(ref_index)):
         m0 = images[:, :, ref_index[i]]
         if i < len(ref_index) - 1:
@@ -85,30 +108,27 @@ def recon_quesp(num, directory):
             next_index = images.shape[2]
         for j in range(ref_index[i] + 1, next_index):
             images[:, :, j] /= m0
+    # 2. Calculate MTRasym and MTRrex
     images = np.nan_to_num(images)
-    # Calculate MTRasym/MTRrex
     mtr_maps = calc_mtr(images, powers, times, offsets_ppm)
-    # Get reference
     reference = images[:,:,ref_index[0]]
     study = {"mtr_maps": mtr_maps, "m0": reference}
     return study
 
 def calc_mtr(images, powers, times, offsets_ppm):
+    """
+    Calculates MTRasym/MTRrex maps for QUESP.
+    """
     mtr_maps = []
-    # Find unique sat powers and offsets
     unique_powers = sorted([p for p in np.unique(powers) if p > 0])
     positive_offsets = sorted([o for o in np.unique(offsets_ppm) if o > 0])
-    # Iterate through powers and calculate MTRasym maps
     for power in unique_powers:
         for pos_offset in positive_offsets:
             pos_idx = np.where((powers == power) & (offsets_ppm == pos_offset))[0]
             neg_idx = np.where((powers == power) & (offsets_ppm == -pos_offset))[0]
-            # Extract images
             pos_img = images[:,:,pos_idx]
             neg_img = images[:,:,neg_idx]
-            # Sat time for image
             time = times[pos_idx][0]
-            # Calculate MTRasym and MTRrex images
             mtr_asym_img = np.squeeze(neg_img - pos_img)
             mtr_rex_img = np.squeeze(1/pos_img - 1/neg_img)
             map_data = {
@@ -118,23 +138,20 @@ def calc_mtr(images, powers, times, offsets_ppm):
                     'time': time,
                     'offset': pos_offset
                 }
-            # Append the dictionary to the list of results
             mtr_maps.append(map_data)
     return mtr_maps
 
 def recon_t1map(num, directory):
+    """
+    Load images and TRs for T1 mapping from VTR acquisition.
+    """
     data = bruker.ReadExperiment(directory, num)
-    # Get images
-    images = data.proc_data
-    # Get experimental parameters
-    trs = data.method['MultiRepTime']
-    study = {"imgs": images, "trs": trs}
-    return study
+    return {"imgs": data.proc_data, "trs": data.method['MultiRepTime']}
 
-def recon_damb1(session_state):
-    directory = st.session_state.submitted_data['folder_path']
-    theta_path = st.session_state.submitted_data['theta_path']
-    two_theta_path = st.session_state.submitted_data['two_theta_path']
+def recon_damb1(directory, theta_path, two_theta_path):
+    """
+    Reconstructs B1 maps from two double angle (DAMB1) experiments.
+    """
     exp_theta = bruker.ReadExperiment(directory, theta_path)
     exp_two_theta = bruker.ReadExperiment(directory, two_theta_path)
     theta = np.squeeze(exp_theta.proc_data)
@@ -150,100 +167,118 @@ def recon_damb1(session_state):
     study = {"imgs": imgs, "nominal_flip": flip}
     return study
 
-def rotate_imgs(session_state, exp_type):
-    imgs = session_state.recon[exp_type]['imgs']
-    # Stage 1: Select rotation
-    if session_state['rotation_stage'] == 'select_rotation':
-        fig = plt.figure()
-        ax = plt.axes()
-        ax.imshow(imgs[:, :, 0], cmap='gray')
+# --- Image processing functions --- #
+def rotate_image_stack(image_stack, k):
+    """
+    Rotates a 3D image stack k * 90deg counterclockwise.
+    """
+    return np.rot90(image_stack, k=k, axes=(0, 1))
+
+def flip_image_stack_vertically(image_stack):
+    """
+    Flips a 3D image stack horizontally.
+    """
+    return np.flip(image_stack, axis=1)
+
+def thermal_drift(recon_data):
+    """
+    Performs thermal drift correction on an image stack.
+    Accepts a dictionary with 'imgs' and 'offsets' and returns an updated one.
+    """
+    THRESHOLD_PPM = 15
+    images = recon_data['imgs']
+    offsets = recon_data['offsets']
+    ref_index = np.where(offsets > THRESHOLD_PPM)[0]
+    m0 = images[:, :, ref_index]
+    corrected_offsets = np.delete(offsets, ref_index)
+    corrected_images = np.delete(images, ref_index, axis=2)
+    if np.size(ref_index) > 1:
+        # Interpolation logic
+        step = ref_index[1] - 1
+        ref_offsets = np.concatenate(([corrected_offsets[0]], corrected_offsets[step-1::step], [corrected_offsets[-1]]))
+        points = (np.arange(images.shape[0]), np.arange(images.shape[1]), ref_offsets)
+        xi, yi, fi = np.meshgrid(np.arange(images.shape[0]), np.arange(images.shape[1]), corrected_offsets, indexing='ij')
+        values = np.stack((xi, yi, fi), axis=-1)
+        m0_interp = interpn(points, m0, values)
+        corrected_images = np.nan_to_num(corrected_images / m0_interp)
+        return {
+            "imgs": corrected_images, "offsets": corrected_offsets,
+            "m0": m0[:, :, 0], "m0_final": m0[:, :, -1], "m0_interp": m0_interp
+        }
+    else:
+        # Simple normalization
+        corrected_images = np.nan_to_num(corrected_images / m0)
+        return {
+            "imgs": corrected_images, "offsets": corrected_offsets,
+            "m0": np.squeeze(m0[:, :, 0])
+        }
+
+# --- Interactive UI functions --- #
+def show_rotation_ui(image_stack, exp_type):
+    """
+    Handles the Streamlit UI for interactively rotating and flipping an image.
+    Returns a tuple (k, flip_vertically) once finalized.
+    """
+    st.subheader(f"Orient {exp_type} Data")
+    # Use a separate key for each experiment type to avoid state conflicts
+    rot_stage_key = f'rotation_stage_{exp_type}'
+    selected_rot_key = f'selected_rotation_{exp_type}'
+    flip_key = f'flip_{exp_type}'
+    # Initialize states if they don't exist
+    if rot_stage_key not in st.session_state:
+        st.session_state[rot_stage_key] = 'select_transform'
+    if selected_rot_key not in st.session_state:
+        st.session_state[selected_rot_key] = 0
+    if flip_key not in st.session_state:
+        st.session_state[flip_key] = False
+    # 1. Select rotation and flip
+    if st.session_state[rot_stage_key] == 'select_transform':
+        fig, ax = plt.subplots()
+        ax.imshow(image_stack[:, :, 0], cmap='gray')
         ax.axis('off')
         st.pyplot(fig, use_container_width=False)
-        session_state['selected_rotation'] = st.selectbox(
-            'Select the number of 90-degree counterclockwise rotations to align ventral (top) to dorsal (bottom):',
+        selected_k = st.selectbox(
+            'Select 90-degree counterclockwise rotations:',
             [0, 1, 2, 3],
-            index=session_state['selected_rotation'],
-            key=f"rotation_select_{exp_type}"  # Added key
+            index=st.session_state[selected_rot_key],
+            key=f"rotation_select_{exp_type}"
         )
-        if st.button('Rotate', key=f"rotate_button_{exp_type}"): # Added key
-            session_state['rotated_imgs'] = np.rot90(imgs, k=session_state['selected_rotation'], axes=(0, 1))
-            session_state['rotation_stage'] = 'confirm_rotation'
+        st.session_state[selected_rot_key] = selected_k
+        # Add a checkbox for the vertical flip
+        flip_vertical = st.checkbox(
+            "Flip image horizontally?",
+            value=st.session_state[flip_key],
+            key=f"flip_checkbox_{exp_type}"
+        )
+        st.session_state[flip_key] = flip_vertical
+        if st.button('Preview Transform', key=f"preview_button_{exp_type}"):
+            st.session_state[rot_stage_key] = 'confirm_transform'
             st.rerun()
-            
-    # Stage 2: Confirm rotation
-    elif session_state['rotation_stage'] == 'confirm_rotation':
+    # 2. Confirm transform
+    elif st.session_state[rot_stage_key] == 'confirm_transform':
+        # Apply rotation
+        transformed_img = rotate_image_stack(image_stack, st.session_state[selected_rot_key])
+        # Apply flip if selected
+        if st.session_state[flip_key]:
+            transformed_img = flip_image_stack_vertically(transformed_img)
+        st.write("Is this orientation correct?")
         fig, ax = plt.subplots()
-        ax.imshow(session_state['rotated_imgs'][:, :, 0], cmap='gray') # Corrected this line
+        ax.imshow(transformed_img[:, :, 0], cmap='gray')
         ax.axis('off')
         st.pyplot(fig)
-        rotation_ok = st.radio(
-            'Is this rotation correct?', 
-            ['Yes', 'No'], 
-            index=0, 
-            key=f"rotation_confirm_{exp_type}" # Added key
-        )
-        if st.button('Submit Rotation', key=f"submit_rotation_{exp_type}"): # Added key
-            if rotation_ok == 'Yes':
-                session_state['rotation_stage'] = 'finalized'
-                session_state.rot_done = True
-                imgs = session_state['rotated_imgs']
-                if exp_type == 'cest':
-                    session_state.recon['cest']['imgs'] = imgs 
-                elif exp_type == 'wassr':
-                    session_state.recon['wassr']['imgs'] = imgs
-                elif exp_type == 'damb1':
-                    session_state.recon['damb1']['imgs'] = imgs
-                st.write("Rotation finalized!")
-                st.rerun()
-            elif rotation_ok == 'No':
-                session_state['rotation_stage'] = 'select_rotation'
-                session_state['rotated_imgs'] = None
-                st.write("Rotation not correct. Please try again.")
-                st.rerun()
-
-def quick_rot(session_state, exp_type):
-    if exp_type == 'wassr':
-        imgs = session_state.recon['wassr']['imgs']
-        session_state.recon['wassr']['imgs'] = np.rot90(imgs, k=session_state['selected_rotation'], axes=(0,1))
-    if exp_type == 'damb1':
-        imgs = session_state.recon['damb1']['imgs']
-        session_state.recon['damb1']['imgs'] = np.rot90(imgs, k=session_state['selected_rotation'], axes=(0,1))
-
-def thermal_drift(session_state, exp_type):
-    THRESHOLD_PPM = 15
-    images = session_state.recon[exp_type]['imgs']
-    offsets = session_state.recon[exp_type]['offsets']
-    # Find reference index
-    ref_index = np.where(offsets > THRESHOLD_PPM)[0]
-    # Apply normalization
-    m0 = images[:,:,ref_index]
-    offsets = np.delete(offsets, ref_index)
-    images = np.delete(images, ref_index, axis=2)
-    
-    if np.size(ref_index) > 1:
-        step = ref_index[1]-1
-        ref_offsets = np.concatenate(([offsets[0]], offsets[step-1::step], [offsets[-1]]))
-
-        matrix = np.size(images, 0)
-        grid_index = np.arange(0,matrix)
-        points = (grid_index, grid_index, ref_offsets)
-        xi, yi, fi = np.meshgrid(grid_index, grid_index, offsets, indexing='ij')
-        values = np.stack((xi, yi, fi), axis=-1)
-        
-
-        m0_interp = interpn(points, m0, values)
-        images = np.nan_to_num(images/m0_interp)
-        
-        session_state.recon[exp_type]['imgs'] = images
-        session_state.recon[exp_type]['offsets'] = offsets
-        session_state.recon[exp_type]['m0'] = m0[:, :, 0]
-        session_state.recon[exp_type]['m0_final'] = m0[:, :, -1]
-        session_state.recon[exp_type]['m0_interp'] = m0_interp
-        session_state.drift_done[exp_type] = True
-        
-    else:
-        images = np.nan_to_num(images/m0)
-        session_state.recon[exp_type]['imgs'] = images
-        session_state.recon[exp_type]['offsets'] = offsets
-        session_state.recon[exp_type]['m0'] = np.squeeze(m0[:, :, 0])
-        session_state.drift_done[exp_type] = True
+        col1, col2 = st.columns(2)
+        with col1:
+            finalize_button = st.button('Finalize Orientation', key=f"submit_transform_{exp_type}")
+        with col2:
+            go_back_button = st.button('Go Back', key=f"retry_transform_{exp_type}")
+        if finalize_button:
+            st.session_state[rot_stage_key] = 'finalized'
+            st_functions.message_logging(f"{exp_type} orientation finalized!")
+            st.rerun()
+        if go_back_button:
+            st.session_state[rot_stage_key] = 'select_transform'
+            st.rerun()
+    # 3. Return the transform values only when finalized
+    if st.session_state[rot_stage_key] == 'finalized':
+        return (st.session_state[selected_rot_key], st.session_state[flip_key])
+    return None # Return None if not yet finalized
