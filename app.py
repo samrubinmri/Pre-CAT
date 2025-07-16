@@ -8,7 +8,6 @@ Created on Tue Jan  7 12:35:44 2025
 # --- Imports --- #
 # Standard library imports
 import os 
-import time # Delete later
 from pathlib import Path 
 # Third-party imports
 import streamlit as st
@@ -19,14 +18,6 @@ from custom import st_functions
 # --- Constants for app setup --- #
 SITE_ICON = "./custom/icons/ksp.ico"
 LOADING_GIF_PATH = Path("custom/icons/loading.gif")
-
-# --- Test functions --- #
-def test_spinner():
-    """A simple function to test the Lottie spinner for a few seconds."""
-    # Use the same Lottie JSON you defined at the top of app.py
-    with st.spinner("Testing the CSS spinner for 3 seconds..."):
-        time.sleep(3)
-    st.success("Test complete!")
 
 # --- Session state management --- #
 def initialize_session_state():
