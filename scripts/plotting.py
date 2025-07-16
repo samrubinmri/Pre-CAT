@@ -15,45 +15,36 @@ from scipy.signal import medfilt2d
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import Normalize
 
-def pixelwise_mapping(image, session_state):
-    if session_state.submitted_data['organ'] == 'Cardiac':
-        masks = {}
-        masks["lv"] = session_state.user_geometry["masks"]["lv"]
+def pixelwise_mapping(image, pixelwise_fits, user_geometry, custom_contrasts, smoothing_filter, save_path):
+    """
+    Generates and displays pixelwise CEST contrast maps.
+    """
+    if 'aha' in user_geometry:
+        masks = {"lv": user_geometry["masks"]["lv"]}
         y_indices, x_indices = np.where(masks["lv"])
         x_min, x_max = max(np.min(x_indices) - 20, 0), min(np.max(x_indices) + 20, masks["lv"].shape[1])
         y_min, y_max = max(np.min(y_indices) - 20, 0), min(np.max(y_indices) + 20, masks["lv"].shape[0])
     else:
-        masks = session_state.user_geometry["masks"]
+        masks = user_geometry["masks"]
         x_min, x_max = 0, image.shape[1] 
         y_min, y_max = 0, image.shape[0]
-    fits = session_state.processed_data["pixelwise"]["fits"]
-    save_path = session_state.submitted_data["save_path"]
     image_path = os.path.join(save_path, 'Images')
-    if not os.path.isdir(image_path):
-        os.makedirs(image_path)
-    
-    # Initialize empty contrast images for all ROIs combined
-    contrasts = session_state.custom_contrasts
-    if contrasts is None:
-        contrasts = ['Amide', 'Creatine', 'NOE (-3.5 ppm)', 'NOE (-1.6 ppm)']
-    contrasts = ['MT'] + contrasts
-    contrast_images = {contrast: np.full_like(image, np.nan, dtype=float)
-                       for contrast in contrasts}
-
+    os.makedirs(image_path, exist_ok=True)
+    contrasts_to_plot = custom_contrasts if custom_contrasts is not None else ['Amide', 'Creatine', 'NOE (-3.5 ppm)', 'NOE (-1.6 ppm)']
+    contrasts_to_plot = ['MT'] + contrasts_to_plot
+    contrast_images = {contrast: np.full_like(image, np.nan, dtype=float) for contrast in contrasts_to_plot}
     for label, mask in masks.items():
-        data = fits[label]
-        for contrast in contrasts:
+        data = pixelwise_fits.get(label, [])
+        for contrast in contrasts_to_plot:
             contrast_list = [datum["Contrasts"].get(contrast, np.nan) for datum in data]
             mask_indices = np.argwhere(mask)
             for idx, (i, j) in enumerate(mask_indices):
-                contrast_images[contrast][i, j] = contrast_list[idx]
-
-    # Apply median filtering to smooth the contrast images
-    if session_state.submitted_data['smoothing_filter'] == True:
+                if idx < len(contrast_list):
+                    contrast_images[contrast][i, j] = contrast_list[idx]
+    if smoothing_filter:
         for contrast in contrast_images:
             contrast_images[contrast] = medfilt2d(contrast_images[contrast], kernel_size=3)
 
-    # Plotting helper function
     def plot_contrast(base_image, contrast_image, title):
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.imshow(base_image[y_min:y_max,x_min:x_max], cmap="gray")
@@ -61,20 +52,13 @@ def pixelwise_mapping(image, session_state):
                        norm=Normalize(vmin=0, vmax=np.nanmax(contrast_image)))
         ax.set_title(title, fontsize=28, weight='bold', fontname='Arial')
         ax.axis("off")
-        
-        # Add colorbar
         cbar = fig.colorbar(im, ax=ax, shrink=0.8)
         cbar.set_label("CEST Contrast (%)", fontsize=16)
         cbar.ax.tick_params(labelsize=14)
-
         return fig
-
-    # Displaying images in a 2x2 grid using Streamlit
     st.subheader("Pixelwise Maps")
     contrasts = list(contrast_images.values())
     titles = list(contrast_images.keys())
-
-    # Use containers to ensure alignment
     for i in range(0, len(contrasts), 2):  # Iterate in steps of 2
         with st.container():
             cols = st.columns(2)
@@ -89,11 +73,11 @@ def pixelwise_mapping(image, session_state):
                     plt.savefig(image_path + '/' + titles[i + 1] + '_Contrast_Map.png', dpi=300, bbox_inches="tight")
                     st.pyplot(fig)
 
-def show_segmentation(image, session_state):
+def show_segmentation(image, labeled_segments, save_path):
+    """
+    Displays the AHA segmentation on a reference image.
+    """
     # Get vars from session state
-    mask = session_state.user_geometry["masks"]["lv"]
-    labeled_segments = session_state.user_geometry["aha"]
-    save_path = session_state.submitted_data["save_path"]
     image_path = os.path.join(save_path, 'Images')
     if not os.path.isdir(image_path):
         os.makedirs(image_path)
@@ -130,9 +114,10 @@ def show_segmentation(image, session_state):
     st.pyplot(fig)
     plt.savefig(image_path + '/AHA_Segmentation.png', dpi = 300, bbox_inches="tight")
     
-def show_rois(image, session_state):
-    masks = session_state.user_geometry["masks"]
-    save_path = session_state.submitted_data["save_path"]
+def show_rois(image, masks, save_path):
+    """
+    Displays drawn ROIs on reference image.
+    """
     image_path = os.path.join(save_path, 'Images')
     if not os.path.isdir(image_path):
         os.makedirs(image_path)
@@ -157,15 +142,14 @@ def show_rois(image, session_state):
     st.pyplot(fig)
     plt.savefig(os.path.join(image_path, 'ROIs.png'), dpi=300, bbox_inches="tight")
 
-def plot_zspec(session_state):
-    fits = session_state.processed_data['fits']
+def plot_zspec(fits, save_path):
+    """
+    Generate and display Z-spectra and Lorentzian difference plots for each ROI.
+    """
     roi_count = len(fits)
-    
-    save_path = session_state.submitted_data["save_path"]
     plot_path = os.path.join(save_path, 'Plots')
     if not os.path.isdir(plot_path):
         os.makedirs(plot_path)
-
     # Dynamically calculate number of rows and columns
     n_cols = 3
     n_rows = -(-roi_count // n_cols)  # Ceiling division for rows
@@ -182,12 +166,6 @@ def plot_zspec(session_state):
                 Offsets = data_dict['Offsets_Corrected']
                 Spectrum = data_dict['Zspec']
                 Fits = {key: value for key, value in data_dict.items() if 'Fit' in key}
-                # Water_Fit = data_dict['Water_Fit']
-                # Mt_Fit = data_dict['MT_Fit']
-                # Noe_Fit = data_dict['NOE (-3.5 ppm)_Fit']
-                # Creatine_Fit = data_dict['Creatine_Fit']
-                # Amide_Fit = data_dict['Amide_Fit']
-
                 # Plot Z-Spectra
                 fig, ax = plt.subplots(figsize=(12, 10))
                 ax.plot(Offsets, Spectrum, '.', markersize=15, fillstyle='none', color='black', label="Raw")
