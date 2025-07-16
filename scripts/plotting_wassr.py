@@ -13,14 +13,12 @@ import pandas as pd
 import seaborn as sns
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-def plot_wassr_aha(session_state):
-    save_path = session_state.submitted_data["save_path"]
+def plot_wassr_aha(wassr_aha_fits, save_path):
     plot_path = os.path.join(save_path, 'Plots')
     if not os.path.isdir(plot_path):
         os.makedirs(plot_path)
 
-    all_fits = session_state.processed_data["wassr_fits"]
-    fits = {k: v for k, v in all_fits.items() if "lv" not in k.lower()}
+    fits = {k: v for k, v in wassr_aha_fits.items() if "lv" not in k.lower()}
 
     data = []
     for segment, b0_values in fits.items():
@@ -44,31 +42,30 @@ def plot_wassr_aha(session_state):
     fig.savefig(plot_file, dpi=300)
     st.pyplot(fig) 
 
-def plot_wassr(image, session_state):
-    save_path = session_state.submitted_data["save_path"]
+def plot_wassr(image, user_geometry, wassr_masked_fits, save_path, wassr_full_map = None):
+    """
+    Visualizes WASSR B0 map. Handles both full map and masked-only data.
+    """
     image_path = os.path.join(save_path, 'Images')
     if not os.path.isdir(image_path):
         os.makedirs(image_path)
         
-    b0_full_map = session_state.processed_data.get('wassr_full_map')
-
     # Case 1: Full B0 map is available
-    if b0_full_map is not None:
+    if wassr_full_map is not None:
         # Create the masked overlay from the full map
-        masked_b0 = np.zeros_like(b0_full_map, dtype=float)
-        if session_state.submitted_data['organ'] == 'Cardiac':
-            segment_masks = session_state.user_geometry["aha"]
+        masked_b0 = np.zeros_like(wassr_full_map, dtype=float)
+        if 'aha' in user_geometry:
+            segment_masks = user_geometry["aha"]
             for label, coord_list in segment_masks.items():
                 for i, j in coord_list:
                     masked_b0[i, j] = b0_full_map[i, j]
         else:
-            masks = session_state.user_geometry["masks"]
-            for label, mask in masks.items():
-                masked_b0[mask] = b0_full_map[mask]
+            for mask in user_geometry["masks"].values():
+                masked_b0[mask] = wassr_full_map[mask]
 
         y_min, y_max, x_min, x_max = 0, image.shape[0], 0, image.shape[1]
-        if session_state.submitted_data['organ'] == 'Cardiac':
-            lv_mask = session_state.user_geometry["masks"]["lv"]
+        if 'aha' in user_geometry:
+            lv_mask = user_geometry["masks"]["lv"]
             y_indices, x_indices = np.where(lv_mask)
             x_min, x_max = max(np.min(x_indices) - 20, 0), min(np.max(x_indices) + 20, lv_mask.shape[1])
             y_min, y_max = max(np.min(y_indices) - 20, 0), min(np.max(y_indices) + 20, lv_mask.shape[0])
@@ -101,27 +98,27 @@ def plot_wassr(image, session_state):
     # Case 2: Only masked data is available
     else:
         b0_image = np.zeros_like(image, dtype='float')
-        if session_state.submitted_data['organ'] == 'Cardiac':
-            lv_mask = session_state.user_geometry["masks"]["lv"]
+        if 'aha' in user_geometry:
+            lv_mask = user_geometry["masks"]["lv"]
             y_indices, x_indices = np.where(lv_mask)
             x_min, x_max = max(np.min(x_indices) - 20, 0), min(np.max(x_indices) + 20, lv_mask.shape[1])
             y_min, y_max = max(np.min(y_indices) - 20, 0), min(np.max(y_indices) + 20, lv_mask.shape[0])
-            segment_masks = session_state.user_geometry["aha"]
-            fits = session_state.processed_data['wassr_fits']
+            segment_masks = user_geometry["aha"]
             for label, coord_list in segment_masks.items():
-                data = fits[label]
+                data = wassr_masked_fits.get(label, [])
                 for idx, (i, j) in enumerate(coord_list):
-                    b0_image[i, j] = data[idx]
+                    if idx < len(data):
+                        b0_image[i, j] = data[idx]
         else:
-            masks = session_state.user_geometry["masks"]
+            masks = user_geometry["masks"]
             x_min, x_max = 0, image.shape[1]
             y_min, y_max = 0, image.shape[0]
-            fits = session_state.processed_data['wassr_fits']
             for label, mask in masks.items():
-                data = fits[label]
+                data = wassr_masked_fits.get(label, [])
                 mask_indices = np.argwhere(mask)
                 for idx, (i, j) in enumerate(mask_indices):
-                    b0_image[i, j] = data[idx]
+                    if idx < len(data):
+                        b0_image[i, j] = data[idx]
 
         transparent_b0 = np.ma.masked_where(b0_image == 0, b0_image)
         fig, ax = plt.subplots(1, 1, figsize=(6, 6))
