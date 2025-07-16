@@ -73,7 +73,7 @@ def pixelwise_mapping(image, pixelwise_fits, user_geometry, custom_contrasts, sm
                     plt.savefig(image_path + '/' + titles[i + 1] + '_Contrast_Map.png', dpi=300, bbox_inches="tight")
                     st.pyplot(fig)
 
-def show_segmentation(image, labeled_segments, save_path):
+def show_segmentation(image, mask, labeled_segments, save_path):
     """
     Displays the AHA segmentation on a reference image.
     """
@@ -82,7 +82,7 @@ def show_segmentation(image, labeled_segments, save_path):
     if not os.path.isdir(image_path):
         os.makedirs(image_path)
     # Initialize an empty RGB array for the segmentation
-    segmented = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+    segmented = np.zeros((image.shape[0], mask.shape[1], 3), dtype=np.uint8)
     # Zoom into the region based on the mask with a margin of ±20 pixels
     y_indices, x_indices = np.where(mask)
     x_min, x_max = max(np.min(x_indices) - 20, 0), min(np.max(x_indices) + 20, mask.shape[1])
