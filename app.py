@@ -698,11 +698,11 @@ def main():
     # Main state machine
     with st.expander("Load data", expanded=not st.session_state.is_submitted):
         do_data_submission()
-    if st.session_state.processing_active:
-        with st.expander("Process data", expanded=not st.session_state.is_processed):
+    if st.session_state.is_submitted:
+        with st.expander("Process data", expanded=st.session_state.processing_active):
             do_processing_pipeline()
-    if st.session_state.display_data:
-        with st.expander("Display and save results", expanded=True):
+    if st.session_state.is_processed:
+        with st.expander("Display and save results", expanded=st.session_state.display_data):
             display_results()
 
     if st.button("Reset"):
