@@ -216,8 +216,7 @@ def do_data_submission():
                     )
                     if "CEST" in selection and cest_type == "Radial":
                         moco_cest = st.toggle('Motion correction (CEST)', help="Correct bulk motion by discarding spokes based on projection images.")
-                        if moco_cest:
-                            pca = st.toggle('Z-spectral denoising', help="Z-spectral denoising with principal component analysis. This is a *global* method using Malinowskis empirical indicator function.")
+                        pca = st.toggle('Z-spectral denoising', help="Z-spectral denoising with principal component analysis. This is a *global* method using Malinowskis empirical indicator function.")
                     pixelwise = st.toggle(
                         'Pixelwise mapping', help="Accuracy is highly dependent on field homogeneity.")
                     if pixelwise:
@@ -404,7 +403,9 @@ def do_data_submission():
                             "folder_path": folder_path,
                             "save_path": save_path,
                             "selection": selection,
-                            "organ": anatomy}
+                            "organ": anatomy,
+                            "reference": st.session_state.get("reference"),
+                            "custom_contrasts": st.session_state.get("custom_contrasts"),}
                         if "CEST" in selection:
                             st.session_state.submitted_data['cest_path'] = cest_path
                             st.session_state.submitted_data['cest_type'] = cest_type
@@ -433,7 +434,9 @@ def do_data_submission():
                 st.error(f"The provided data path does not exist: {folder_path}")
 
 def do_processing_pipeline():
-    """Manages the sequential processing pipeline for all experiment types."""
+    """
+    Manages the sequential processing pipeline for all experiment types.
+    """
     # Retrieve submitted experiment types 
     submitted = st.session_state.submitted_data
     selection = [s.lower() for s in submitted.get('selection', [])]
@@ -445,17 +448,32 @@ def do_processing_pipeline():
             for exp_type in tasks_to_run:
                 if exp_type == 'cest':
                     cest_type = submitted.get('cest_type')
-                    if cest_type == 'Radial' and submitted.get('moco_cest'):
-                        st.session_state.recon_data['cest'] = pre_processing.run_radial_preprocessing(
-                            submitted['folder_path'],
-                            submitted['cest_path'],
-                            submitted.get('pca', False),
-                            exp_type
-                        )
-                    elif cest_type == 'Radial':
-                        st.session_state.recon_data['cest'] = load_study.recon_bart(
-                            submitted['cest_path'], submitted['folder_path']
-                        )
+                    if cest_type == 'Radial':
+                        use_moco = submitted.get('moco_cest', False)
+                        use_pca = submitted.get('pca', False)
+                        if use_moco:
+                            # With motion correction (with or without PCA)
+                            st.session_state.recon_data['cest'] = pre_processing.run_radial_preprocessing(
+                                submitted['folder_path'],
+                                submitted['cest_path'],
+                                use_pca,
+                                exp_type
+                            )
+                        else:
+                            # Without motion correction
+                            recon_data = load_study.recon_bart(
+                                submitted['cest_path'], submitted['folder_path']
+                            )
+                            if use_pca:
+                                # Apply PCA denoising
+                                denoised_images = pre_processing.denoise_data(recon_data['imgs'])
+                                st.session_state.recon_data['cest'] = {
+                                    "imgs": denoised_images,
+                                    "offsets": recon_data['offsets']
+                                }
+                            else:
+                                # Just reconstruction
+                                st.session_state.recon_data['cest'] = recon_data
                     else: # Rectilinear
                         st.session_state.recon_data['cest'] = load_study.recon_bruker(
                             submitted['cest_path'], submitted['folder_path']
@@ -647,12 +665,11 @@ def display_results():
     if "CEST" in submitted['selection']:
         st.header('CEST Results')
         ref_image = st.session_state.processed_data['cest']['m0']
-        mask = st.session_state.user_geometry['masks']['lv']
         if submitted['organ'] == 'Cardiac':
+            mask = st.session_state.user_geometry['masks']['lv']
             plotting.show_segmentation(ref_image, mask, st.session_state.user_geometry['aha'], save_path)
         else:
             plotting.show_rois(ref_image, st.session_state.user_geometry['masks'], save_path)
-        
         if submitted.get('pixelwise') and 'cest_pixelwise' in st.session_state.fits:
             plotting.pixelwise_mapping(
                 ref_image, st.session_state.fits['cest_pixelwise'], 

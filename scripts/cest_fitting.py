@@ -115,6 +115,7 @@ def calc_spectra(imgs, user_geometry):
             spectra[label] = np.mean(pixels, axis=0)
     else:
         # Standard ROI logic
+        masks = user_geometry['masks']
         for label, mask in masks.items():
             pixels = imgs[mask, :]
             spectra[label] = np.mean(pixels, axis=0)
