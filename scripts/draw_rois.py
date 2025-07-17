@@ -134,20 +134,24 @@ def get_base64_image(image_path):
         return base64.b64encode(img_file.read()).decode("utf-8")
 
 @st.cache_data
-def _prepare_canvas_background(image_data, zoom_data=None):
-    """Prepares the m0 image to be used as a background for the canvas."""
-    if isinstance(image_data, dict) and 'm0' in image_data:
-        m0 = image_data['m0']
-    else:
-        m0 = image_data.squeeze()
-        if zoom_data and 'm0' in zoom_data and np.shape(m0) != np.shape(zoom_data['m0']):
-            zoom_factors = np.array(zoom_data['m0'].shape) / np.array(m0.shape)
-            m0 = zoom(m0, zoom_factors, order=2) # Bilinear interpolation
-    img_height, img_width = np.shape(m0)
+def _prepare_canvas_background(bg_image_data, size_ref_data=None):
+    """
+    Prepares the m0 image to be used as a background for the canvas.
+    Resizes the background image to match reference data if necessary.
+    """
+    display_image = bg_image_data.squeeze()
+    # If a size reference is provided and the shapes don't match, resize the background image.
+    if size_ref_data is not None:
+        size_ref_img = size_ref_data.squeeze()
+        if display_image.shape != size_ref_img.shape:
+            zoom_factors = np.array(size_ref_img.shape) / np.array(display_image.shape)
+            display_image = zoom(display_image, zoom_factors, order=2)  # Bilinear interpolation
+    # All subsequent calculations use the (potentially resized) display_image.
+    img_height, img_width = display_image.shape
     canvas_width = 600
     canvas_height = int(canvas_width * img_height / img_width)
     fig, ax = plt.subplots(figsize=(canvas_width/100, canvas_height/100))
-    ax.imshow(m0, cmap='gray')
+    ax.imshow(display_image, cmap='gray')
     ax.axis('off')
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
     img_byte_arr = io.BytesIO()
@@ -156,13 +160,14 @@ def _prepare_canvas_background(image_data, zoom_data=None):
     plt.close(fig)
     return Image.open(img_byte_arr), (img_width, img_height), (canvas_width, canvas_height)
 
+
 # --- Interactive UI functions --- #
-def draw_rois(image, zoom_ref=None):
+def draw_rois(image, size_ref_image=None):
     """
     UI component for drawing general-purpose ROIs.
     Returns the final ROI data upon user submission.
     """
-    background_image, (img_w, img_h), (can_w, can_h) = _prepare_canvas_background(image, zoom_ref)
+    background_image, (img_w, img_h), (can_w, can_h) = _prepare_canvas_background(image, size_ref_image)
     
     st.markdown("## ROI Instructions")
     st.markdown("**Please read carefully!!**")
@@ -220,12 +225,12 @@ def draw_rois(image, zoom_ref=None):
             return rois
     return None
 
-def cardiac_roi(image, zoom_ref=None):
+def cardiac_roi(image, size_ref_image=None):
     """
     UI component for the specific cardiac ROI workflow.
     Returns the final ROI data upon user submission.
     """
-    background_image, (img_w, img_h), (can_w, can_h) = _prepare_canvas_background(image, zoom_ref)
+    background_image, (img_w, img_h), (can_w, can_h) = _prepare_canvas_background(image, size_ref_image)
 
     st.markdown("## Cardiac ROI Instructions")
     st.markdown("**Please read carefully!! If order of operations is not respected you will have to redraw ROIs!**")
