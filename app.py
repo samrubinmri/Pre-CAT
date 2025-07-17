@@ -569,18 +569,18 @@ def do_processing_pipeline():
         roi_canvas_placeholder = st.empty()
         with roi_canvas_placeholder.container():
             # Determine the best reference image for drawing ROIs
-            ref_img = None
-            if submitted.get('reference'):
-                ref_img = st.session_state.submitted_data['reference']
+            primary_exp = selection[0]
+            processed_exp_data = st.session_state.processed_data[primary_exp]
+            if 'm0' in processed_exp_data:
+                canvas_shape_ref = processed_exp_data['m0']
+            elif 'imgs' in processed_exp_data:
+                img_stack = processed_exp_data['imgs']
+                canvas_shape_ref = img_stack[:, :, 0] if img_stack.ndim >= 3 else img_stack
+            if submitted.get('reference') is not None:
+                canvas_bg_image = submitted['reference']
             else:
-                primary_exp = selection[0]
-                processed_exp_data = st.session_state.processed_data[primary_exp]
-                if 'm0' in processed_exp_data:
-                    ref_image = processed_exp_data['m0']
-                elif 'imgs' in processed_exp_data:
-                    img_stack = processed_exp_data['imgs']
-                    ref_image = img_stack[:, :, 0] if img_stack.ndim >= 3 else img_stack
-            rois = draw_rois.cardiac_roi(ref_image) if submitted['organ'] == 'Cardiac' else draw_rois.draw_rois(ref_image)
+                canvas_bg_image = canvas_shape_ref
+            rois = draw_rois.cardiac_roi(canvas_bg_image, canvas_shape_ref) if submitted['organ'] == 'Cardiac' else draw_rois.draw_rois(canvas_bg_image, canvas_shape_ref)
         if rois:
             st.session_state.user_geometry['rois'] = rois
             st.session_state.pipeline_status['rois_done'] = True
@@ -595,18 +595,14 @@ def do_processing_pipeline():
         with st.spinner("Performing final analysis..."):
             # --- Generate masks and AHA segments ---
             # Determine reference image
-            ref_img = None
-            if submitted.get('reference'):
-                ref_img = st.session_state.submitted_data['reference']
-            else:
-                primary_exp = selection[0]
-                processed_exp_data = st.session_state.processed_data[primary_exp]
-                if 'm0' in processed_exp_data:
-                    ref_image = processed_exp_data['m0']
-                elif 'imgs' in processed_exp_data:
-                    img_stack = processed_exp_data['imgs']
-                    ref_image = img_stack[:, :, 0] if img_stack.ndim >= 3 else img_stack
-            masks = draw_rois.convert_rois_to_masks(ref_image, st.session_state.user_geometry['rois'])
+            primary_exp = selection[0]
+            processed_exp_data = st.session_state.processed_data[primary_exp]
+            if 'm0' in processed_exp_data:
+                mask_creation_ref_image = processed_exp_data['m0']
+            elif 'imgs' in processed_exp_data:
+                img_stack = processed_exp_data['imgs']
+                mask_creation_ref_image = img_stack[:, :, 0] if img_stack.ndim >= 3 else img_stack
+            masks = draw_rois.convert_rois_to_masks(mask_creation_ref_image, st.session_state.user_geometry['rois'])
             st.session_state.user_geometry['masks'] = masks
             
             if submitted['organ'] == 'Cardiac':
