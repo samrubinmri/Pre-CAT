@@ -10,6 +10,9 @@ import numpy as np
 from sklearn.metrics import mean_squared_error
 from scipy.optimize import curve_fit
 from scipy.interpolate import CubicSpline
+import pickle
+
+
 
 ###Pre-correction###
 ##Starting points for curve fitting: amplitude, FWHM, peak center##
@@ -109,7 +112,7 @@ def Water_Fit_Correction(x, *fit_parameters):
 
 def calc_spectra(imgs, session_state):
     spectra = {}
-    organ = session_state.submitted_data['organ']
+    organ = session_state.submitted_data['organ']    
     if organ == 'Cardiac':
         labeled_segments = session_state.user_geometry['aha']
         mask = session_state.user_geometry['masks']['lv']
@@ -128,38 +131,61 @@ def calc_spectra(imgs, session_state):
             spectra[label] = spectrum
     else:
         masks = session_state.user_geometry['masks']
+        # Process all manually drawn ROIs
         for label, roi in masks.items():
             pixels = []
             for i in range(np.size(imgs, axis=2)):
-                img = imgs[:,:,i]
-                img_roi = img*roi
+                img = imgs[:, :, i]
+                img_roi = img * roi
                 img_roi = img_roi.flatten()[img_roi.flatten() != 0]
                 pixels.append(img_roi)
             pixels = np.array(pixels)
             spectrum = np.mean(pixels, axis=1)
             spectra[label] = spectrum
     session_state.processed_data['spectra'] = spectra
-    return session_state
 
 def calc_spectra_pixelwise(imgs, session_state):
     spectra = {}
     organ = session_state.submitted_data['organ']
-    # Determine masks based on organ type
+    current_masks = {}
     if organ == 'Cardiac':
-        masks = {'lv': session_state.user_geometry['masks']['lv']}
+        current_masks = {'lv': session_state.user_geometry['masks'].get('lv')}
+        current_masks = np.squeeze(current_masks).astype(bool)
     else:
-        masks = session_state.user_geometry['masks']
-    # Process each mask
-    for label, mask in masks.items():
+        for label, mask_data in session_state.user_geometry['masks'].items():
+            if mask_data is not None:
+                current_masks[label] = np.squeeze(mask_data).astype(bool)
+            else:
+                print(f"[WARNING] Mask for label '{label}' is None, skipping")
+    if not current_masks:
+        st.warning("No masks found for pixelwise spectrum calculation")
+        session_state.processed_data["pixelwise"]["spectra"] = {}    # Process each mask
+    
+    for label, mask in current_masks.items():
+        if mask is None:
+            print(f"[WARNING] masks for label {label} is none, skipping")
+            continue
         pixels = []  # Clear pixels for each label
-        for i in range(imgs.shape[2]):  # Loop over image slices
+        mask = np.squeeze(mask).astype(bool)  # Ensure boolean mask
+        print(f"Shape of {mask} is {mask.shape}")
+        if mask.shape != imgs.shape[:2]:
+            raise ValueError(f"Mask shape {mask.shape} does not match image shape {imgs.shape[:2]}")
+
+        num_masked_pixels = np.count_nonzero(mask)
+        num_slices = imgs.shape[2]
+
+        for i in range(num_slices):
             img = imgs[:, :, i]
-            # Apply mask and filter non-zero pixels
-            masked_pixels = img[mask]
+            masked_pixels = img[mask]  # Pull only masked pixel values
+            if len(masked_pixels) != num_masked_pixels:
+                raise ValueError(f"Mismatch in masked pixel count at slice {i}: expected {num_masked_pixels}, got {len(masked_pixels)}")
             pixels.append(masked_pixels)
-        # Stack and store pixel data
-        pixels = np.array(pixels).T  # Transpose to swap axes
+
+        pixels = np.array(pixels).T  # Shape: (num_masked_pixels, num_slices)
+        print(f"Stored spectra for label '{label}' with shape {pixels.shape}")
         spectra[label] = pixels.tolist()
+
+ 
     # Save spectra to session state
     session_state.processed_data["pixelwise"]["spectra"] = spectra
 

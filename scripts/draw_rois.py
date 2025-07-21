@@ -15,6 +15,9 @@ import matplotlib.pyplot as plt
 from streamlit_drawable_canvas import st_canvas
 from PIL import Image, ImageDraw
 from scipy.ndimage import zoom
+from skimage.filters import threshold_otsu, median
+from skimage.morphology import disk
+from skimage.transform import  resize
 
 def distance(co1, co2):
     return abs(co1[0] - co2[0])**2 + abs(co1[1] - co2[1])**2

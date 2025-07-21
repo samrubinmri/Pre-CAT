@@ -14,7 +14,6 @@ from matplotlib.patches import Patch
 from scipy.signal import medfilt2d
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import Normalize
-
 def pixelwise_mapping(image, session_state):
     if session_state.submitted_data['organ'] == 'Cardiac':
         masks = {}
@@ -52,14 +51,13 @@ def pixelwise_mapping(image, session_state):
     if session_state.submitted_data['smoothing_filter'] == True:
         for contrast in contrast_images:
             contrast_images[contrast] = medfilt2d(contrast_images[contrast], kernel_size=3)
-
     # Plotting helper function
     def plot_contrast(base_image, contrast_image, title):
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.imshow(base_image[y_min:y_max,x_min:x_max], cmap="gray")
         im = ax.imshow(contrast_image[y_min:y_max,x_min:x_max], cmap="viridis", alpha=0.9, 
                        norm=Normalize(vmin=0, vmax=np.nanmax(contrast_image)))
-        ax.set_title(title, fontsize=28, weight='bold', fontname='Arial')
+        ax.set_title(title, fontsize=28, weight='bold')
         ax.axis("off")
         
         # Add colorbar
@@ -88,6 +86,43 @@ def pixelwise_mapping(image, session_state):
                     fig = plot_contrast(image, contrasts[i + 1], titles[i + 1])
                     plt.savefig(image_path + '/' + titles[i + 1] + '_Contrast_Map.png', dpi=300, bbox_inches="tight")
                     st.pyplot(fig)
+
+"""
+def pixelwise_mapping(image, session_state):
+    print(f"Starting pixelwise mapping...")
+    organ = session_state.submitted_data['organ']
+    if organ == 'Cardiac':
+        masks = {'lv': session_state.user_geometry['masks']['lv']}
+    else:
+        masks = session_state.user_geometry['masks']
+
+    pixelwise_mask = session_state.user_geometry.get('pixelwise_mask')
+    if pixelwise_mask is None:
+        st.error("Pixelwise mask not found")
+        return
+
+    mask_indices = np.argwhere(pixelwise_mask)
+
+    fits = session_state.processed_data["pixelwise"]["fits"]
+    contrasts = session_state.custom_contrasts or ['Amide', 'Creatine', 'NOE (-3.5 ppm)', 'NOE (-1.6 ppm)']
+    contrasts = ['MT'] + contrasts
+
+    contrast_images = {contrast: np.full_like(image, np.nan, dtype=float) for contrast in contrasts}
+
+    for label, mask in masks.items():
+        data = fits[label]
+        for contrast in contrasts:
+            contrast_list = [datum["Contrasts"].get(contrast, np.nan) for datum in data]
+            if len(contrast_list) != len(mask_indices):
+                st.warning(f"Pixel count mismatch for {label} and {contrast}")
+                continue
+            for idx, (i, j) in enumerate(mask_indices):
+                contrast_images[contrast][i, j] = contrast_list[idx]
+
+    if session_state.submitted_data['smoothing_filter']:
+        for contrast in contrast_images:
+            contrast_images[contrast] = medfilt2d(contrast_images[contrast], kernel_size=3)
+"""
 
 def show_segmentation(image, session_state):
     # Get vars from session state
@@ -223,9 +258,9 @@ def plot_zspec(session_state):
                 ax.invert_xaxis()
                 ax.tick_params(axis='both', which='major', labelsize=16)
                 ax.set_ylim([0, 1])
-                ax.set_xlabel("Offset frequency (ppm)", fontsize=18, fontname='Arial')
-                ax.set_ylabel("$S/S_0$", fontsize=18, fontname='Arial')
-                fig.suptitle(roi, fontsize=28, weight='bold', fontname='Arial')
+                ax.set_xlabel("Offset frequency (ppm)", fontsize=18)
+                ax.set_ylabel("$S/S_0$", fontsize=18)
+                fig.suptitle(roi, fontsize=28, weight='bold')
                 plt.grid(False)
                 st.pyplot(fig)
                 plt.savefig(plot_path + '/' + roi + '_Zspec.png', dpi = 300, bbox_inches="tight")
@@ -260,9 +295,9 @@ def plot_zspec(session_state):
                 ax.legend(fontsize=16)
                 ax.invert_xaxis()
                 ax.tick_params(axis='both', which='major', labelsize=16)
-                ax.set_xlabel("Offset frequency (ppm)", fontsize=18, fontname='Arial')
-                ax.set_ylabel("CEST Contrast (%)", fontsize=18, fontname='Arial')
-                fig.suptitle(roi, fontsize=28, weight='bold', fontname='Arial')
+                ax.set_xlabel("Offset frequency (ppm)", fontsize=18)
+                ax.set_ylabel("CEST Contrast (%)", fontsize=18)
+                fig.suptitle(roi, fontsize=28, weight='bold')
                 plt.grid(False)
                 st.pyplot(fig)
                 plt.savefig(plot_path + '/' + roi + '_Lorentzian_Dif.png', dpi=300, bbox_inches="tight")

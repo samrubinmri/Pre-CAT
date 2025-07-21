@@ -11,6 +11,7 @@ import os
 from scripts import load_study, pre_processing, draw_rois, cest_fitting, plotting, plotting_wassr, plotting_damb1, BrukerMRI
 from custom import st_functions
 from pathlib import Path
+import numpy as np
 
 site_icon = "./custom/icons/ksp.ico"
 loading_gif_path = Path("custom/icons/loading.gif")
@@ -159,6 +160,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     moco_cest = False
                     pca = False
                     pixelwise = False
+                    auto_segment = False
                     cest_type = st.radio('CEST acquisition type', ["Radial", "Rectilinear"], horizontal=True)
                     st.markdown(
                     """
@@ -192,6 +194,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                         reference = st.toggle(
                             'Additional reference image', help="Use this option to load an additional reference image for ROI(s)/masking. By default, the unsaturated (S0/M0) image is used.")
                         if reference:
+                            auto_segment = st.toggle('Auto-segment reference image', help="Automatically segment the reference image to create a mask. This is useful for anatomical ROIs.")
                             all_fields_filled = False
                             reference_path = st.text_input('Input reference experiment number', help='Reference image assumed to be rectilinear. Please only use single slice images.')
                             if reference_path:
@@ -214,6 +217,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                                 else:
                                     st.error(f"Reference folder does not exist: {reference_full_path}")
                                     reference_validation = False
+
                                 
                         choose_contrasts = st.toggle(
                             'Choose contrasts', help="Default contrasts are: amide, creatine, NOE. Water and MT are always fit.")
@@ -343,6 +347,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                             st.session_state.submitted_data['smoothing_filter'] = smoothing_filter
                             st.session_state.submitted_data['moco_cest'] = moco_cest
                             st.session_state.submitted_data['pca'] = pca
+                            st.session_state.submitted_data['auto_segment'] = auto_segment
                         if "WASSR" in selection: 
                             st.session_state.submitted_data['wassr_path'] = wassr_path
                             st.session_state.submitted_data['wassr_type'] = wassr_type
@@ -471,15 +476,27 @@ if st.session_state.is_submitted:
                     rois = st.session_state.user_geometry["rois"]
                     st.session_state.user_geometry['masks'] = draw_rois.convert_rois_to_masks(image, rois)
                     masks = st.session_state.user_geometry['masks']
+                    if st.session_state.submitted_data.get('auto_segment', False):
+                        draw_rois.auto_segment_hydrogel(st.session_state)
+                        st.success("Auto-segmentation complete!")
                     if st.session_state.submitted_data['organ'] == 'Cardiac':
                         st.session_state.user_geometry['masks']['lv'] = draw_rois.calc_lv_mask(masks)
                         draw_rois.aha_segmentation(image, st.session_state)
                     imgs = st.session_state.recon['cest']['imgs']
+                    print(f"Image stack shape: {imgs.shape}")
+    
                     cest_fitting.calc_spectra(imgs, st.session_state)
-                    st.session_state.processed_data["fits"] = cest_fitting.two_step(st.session_state.processed_data['spectra'], st.session_state.recon['cest']['offsets'], st.session_state.custom_contrasts)
-                    if st.session_state.submitted_data['pixelwise'] == True and st.session_state.processed_data['pixelwise']['fits'] is None:
+                    st.session_state.processed_data["fits"] = cest_fitting.two_step(
+                        st.session_state.processed_data['spectra'],
+                        st.session_state.recon['cest']['offsets'],
+                        st.session_state.custom_contrasts
+                    )
+                    if st.session_state.submitted_data['pixelwise'] and st.session_state.processed_data['pixelwise']['fits'] is None:
                         cest_fitting.calc_spectra_pixelwise(imgs, st.session_state)
                         st.session_state.processed_data['pixelwise']['fits'] = cest_fitting.per_pixel(st.session_state)
+
+
+
                     st.success("Fitting complete (CEST)!")
         ## WASSR processing
         if "WASSR" in submitted_data["selection"] and (
