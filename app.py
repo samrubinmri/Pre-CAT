@@ -618,6 +618,7 @@ def do_processing_pipeline():
             # Determine reference image
             primary_exp = selection[0]
             processed_exp_data = st.session_state.processed_data[primary_exp]
+
             if 'm0' in processed_exp_data:
                 mask_creation_ref_image = processed_exp_data['m0']
             elif 'imgs' in processed_exp_data:
@@ -625,7 +626,33 @@ def do_processing_pipeline():
                 mask_creation_ref_image = img_stack[:, :, 0] if img_stack.ndim >= 3 else img_stack
             masks = draw_rois.convert_rois_to_masks(mask_creation_ref_image, st.session_state.user_geometry['rois'])
             st.session_state.user_geometry['masks'] = masks
-            
+
+            # 2. Auto-Segmentation (Conditional)
+            if submitted.get('auto_segment', False):
+                st_functions.message_logging("Applying auto-segmentation...", msg_type='info')
+                updated_masks_after_auto_segment = draw_rois.auto_segment_hydrogel(
+                    reference_image = st.session_state.reference, masks_dict = st.session_state.user_geometry['masks'])
+                if updated_masks_after_auto_segment:
+                    st.session_state.user_geometry['masks'] = updated_masks_after_auto_segment
+                    st_functions.message_logging("Auto-segmentation completed.", msg_type='success')
+                else:
+                    st_functions.message_logging("Auto-segmentation skipped or failed.", msg_type='warning')
+
+            # 3. Multi-Layered Spatial Zone Analysis (Conditional)
+            if submitted.get('spatial_zone_analysis', False):
+                st_functions.message_logging("Creating multi-layered spatial zones...", msg_type='info')
+                dilation_pixels = submitted.get('ring_dilation_pixels', 5)
+                updated_masks_after_zones = draw_rois.create_multi_zone_masks(
+                    reference_image= st.session_state.reference,
+                    masks_dict=st.session_state.user_geometry['masks'], # Pass the current masks (potentially auto-segmented)
+                    dilation_pixels=dilation_pixels
+                )
+                if updated_masks_after_zones:
+                    st.session_state.user_geometry['masks'] = updated_masks_after_zones
+                    st_functions.message_logging("Multi-layered spatial zones created.", msg_type='success')
+                else:
+                    st_functions.message_logging("Multi-layered spatial zone creation skipped or failed.", msg_type='warning')
+
             if submitted['organ'] == 'Cardiac':
                 lv_mask = draw_rois.calc_lv_mask(masks)
                 st.session_state.user_geometry['masks']['lv'] = lv_mask

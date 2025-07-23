@@ -17,6 +17,8 @@ from PIL import Image, ImageDraw
 from scipy.ndimage import zoom
 from skimage.filters import threshold_otsu, median
 from skimage import morphology
+from skimage.morphology import disk
+
 from skimage.transform import  resize
 
 # --- Calculation functions --- #
@@ -213,165 +215,6 @@ def draw_rois(image, size_ref_image=None):
         display_toolbar=True, key="canvas_other"
     )
 
-    # Access the coordinates of the drawn polygon from the canvas_result
-    if canvas_result.json_data is not None:
-            polygons = canvas_result.json_data.get("objects", [])
-            rois = {}
-            for idx, polygon in enumerate(polygons):
-                name = st.text_input(f"Name ROI {idx+1}", f"ROI {idx+1}")
-                coords = polygon['path']
-                # Rescale coordinates back to the original image dimensions
-                scale_x = img_width / canvas_width  # Scaling factor for width
-                scale_y = img_height / canvas_height  # Scaling factor for height
-                
-                original_coords = []
-                for i, cmd in enumerate(coords):
-                    if cmd[0] in ["M", "L"]:  # Move/Line commands
-                        x_scaled = int(cmd[1] * scale_x)
-                        y_scaled = int(cmd[2] * scale_y)
-                        original_coords.append([cmd[0], x_scaled, y_scaled])
-                    elif cmd[0] == "z":  # Close path
-                        original_coords.append([cmd[0]])
-                
-                rois[name] = original_coords
-            session_state.user_geometry["rois"] = rois
-                
-                #st.write("Original Coordinates:", original_coords) # For debugging
-                #st.write(names) # For debugging
-            if st.button("Submit ROI(s)"):
-                session_state.rois_done = True
-                st.rerun()
-#take out mask_key resitricted to ROI 1
-def auto_segment_hydrogel(session_state): # No mask_key parameter
-    """
-    Refines all masks in session_state.user_geometry['masks'] by applying threshold-based
-    segmentation and smoothing, based on the provided image processing logic.
-    Overwrites the initial masks with the refined versions in session_state.
-
-    This version processes all masks without specific exclusions or advanced error handling.
-
-    Parameters:
-    - session_state: Streamlit session_state object.
-    """
-    if session_state.reference is None:
-        st.error("Reference image is required for auto-segmentation.")
-        return
-
-    reference_image_raw = np.squeeze(session_state.reference)
-    
-    # Work on a copy of the masks to avoid issues if the dictionary changes during iteration
-    all_masks_in_session_state = session_state.user_geometry['masks'].copy() 
-
-    segmented_count = 0
-    # Iterate through all masks in the current session state
-    for mask_label, current_mask_data in all_masks_in_session_state.items():
-        if current_mask_data is None:
-            print(f"[WARNING] Mask '{mask_label}' is None. Skipping auto-segmentation for this mask.")
-            continue
-
-        # Core logic from your provided auto_segment_hydrogel snippet:
-        image = np.copy(reference_image_raw) # Work on a copy of the reference image
-        mask = np.squeeze(current_mask_data) # Squeeze the current mask
-
-        # Ensure shapes match by resizing image to mask's shape
-        if image.shape != mask.shape:
-            print(f"[INFO] Resizing reference image from {image.shape} to match mask '{mask_label}' ({mask.shape}) for auto-segmentation.")
-            image = resize(image, mask.shape, preserve_range=True, anti_aliasing=True)
-        
-        # Assert is for debugging; might be removed in production code if you prefer soft error handling
-        assert image.shape == mask.shape, f"Shape mismatch after resize: {image.shape} vs {mask.shape} for mask '{mask_label}'"
-
-        # Apply the mask to the image (this isolates the region of interest)
-        masked_image = image * mask
-        
-        # Perform Otsu thresholding directly on the masked image
-        # Note: This does not include checks for `masked_image` being all zeros or constant,
-        # which could lead to errors if `threshold_otsu` can't find a threshold.
-        thresh = threshold_otsu(masked_image)
-        binary = masked_image > thresh
-        smoothed_binary = median(binary, footprint=morphology.disk(4))
-        
-        # Overwrite the original mask in session state with the refined result
-        refined_mask = smoothed_binary.astype(np.uint8)
-        session_state.user_geometry['masks'][mask_label] = refined_mask
-
-        print(f"[SUCCESS] Auto-segmentation complete. Mask '{mask_label}' updated. Final mask shape: {refined_mask.shape}, Non-zero pixels: {np.count_nonzero(refined_mask)}")
-        segmented_count += 1
-    
-    if segmented_count > 0:
-        st.success(f"Auto-segmentation applied to {segmented_count} ROI(s).")
-    else:
-        st.info("No masks found or processed for auto-segmentation.")
-
-def create_multi_zone_masks(session_state, base_mask_key='ROI 1'):
-    """
-    Creates multiple concentric ring masks (Zone 1 and Zone 2) around a specified base mask.
-    Zone 0 is implicitly the base_mask_key itself (e.g., 'ROI 1').
-    The thickness of each zone is determined by 'ring_dilation_pixels' from session_state.
-    Parameters:
-    - session_state: Streamlit session_state object.
-    - base_mask_key (str): The key of the base mask in session_state.user_geometry['masks']
-                           (e.g., 'ROI 1', which should be the auto-segmented hydrogel).
-    """
-    # Ensure the reference image is available for shape validation
-    if session_state.reference is None:
-        st.error("Reference image is required to create multi-zone masks.")
-        return
-    # Retrieve the base mask (expected to be the auto-segmented ROI 1)
-    base_mask = session_state.user_geometry['masks'].get(base_mask_key)
-    if base_mask is None:
-        st.warning(f"Base mask '{base_mask_key}' not found. Cannot create multi-zone masks.")
-        return
-    # Ensure base mask is a 2D boolean array
-    base_mask_2d = np.squeeze(base_mask).astype(bool)
-    mask_original_shape = base_mask_2d.shape # Store original shape for final resize
-    # Check if the base mask is empty
-    if not np.any(base_mask_2d):
-        st.warning(f"Base mask '{base_mask_key}' is empty. Cannot create meaningful multi-zone masks.")
-        # Store empty masks for the zones to avoid KeyErrors downstream if they are expected
-        session_state.user_geometry['masks']['ring_zone_1'] = np.zeros_like(base_mask_2d, dtype=np.uint8)
-        session_state.user_geometry['masks']['ring_zone_2'] = np.zeros_like(base_mask_2d, dtype=np.uint8)
-        return
-
-    # Ensure mask shape matches reference image slice shape for consistency during dilation
-    # Assuming reference image is 2D (rows, cols)
-    ref_image_shape = session_state.reference.shape[:2] if session_state.reference.ndim >=2 else session_state.reference.shape
-
-    if base_mask_2d.shape != ref_image_shape:
-        print(f"[WARNING] Base mask '{base_mask_key}' shape {base_mask_2d.shape} does not match reference image shape {ref_image_shape}. Resizing base mask for zone creation.")
-        base_mask_2d = resize(base_mask_2d, ref_image_shape, order=0, preserve_range=True, anti_aliasing=False)
-        base_mask_2d = base_mask_2d.astype(bool)
-
-    # Get the dilation pixel value from session state
-    # Provide a default (e.g., 5) in case the key isn't found for some reason
-    dilation_pixels = session_state.submitted_data.get('ring_dilation_pixels', 5) 
-    # Define the structural element for dilation
-    selem = morphology.disk(dilation_pixels)
-    # --- Generate Zone 1 (First Ring) ---
-    # Dilate the base mask (which might have been resized to ref_image_shape)
-    dilated_mask_1 = morphology.dilation(base_mask_2d, selem)
-    # Zone 1 is the region in dilated_mask_1 but not in base_mask_2d
-    ring_zone_1_mask = dilated_mask_1 & ~base_mask_2d
-    # Resize back to the original mask shape before storing
-    ring_zone_1_mask = resize(ring_zone_1_mask, mask_original_shape, order=0, preserve_range=True, anti_aliasing=False)
-    session_state.user_geometry['masks']['ring_zone_1'] = ring_zone_1_mask.astype(np.uint8)
-    print(f"[INFO] Ring Zone 1 mask created. Shape: {ring_zone_1_mask.shape}, Non-zero pixels: {np.count_nonzero(ring_zone_1_mask)}")
-    # --- Generate Zone 2 (Second Ring) ---
-    # The base for Zone 2 starts from the outer edge of Zone 1, which is `dilated_mask_1`
-    dilated_mask_2 = morphology.dilation(dilated_mask_1, selem)
-    # Zone 2 is the region in dilated_mask_2 but not in dilated_mask_1
-    ring_zone_2_mask = dilated_mask_2 & ~dilated_mask_1
-    # Resize back to the original mask shape before storing
-    ring_zone_2_mask = resize(ring_zone_2_mask, mask_original_shape, order=0, preserve_range=True, anti_aliasing=False)
-    session_state.user_geometry['masks']['ring_zone_2'] = ring_zone_2_mask.astype(np.uint8)
-    print(f"[INFO] Ring Zone 2 mask created. Shape: {ring_zone_2_mask.shape}, Non-zero pixels: {np.count_nonzero(ring_zone_2_mask)}")
-    st.success(f"Multi-layered Spatial Zone analysis masks (Zone 1 & Zone 2) created with thickness {dilation_pixels} pixels.")
-
-
-
-def cardiac_roi(session_state, data, cest):
-    # Load images
-    # Get the directory of the current script
     if canvas_result.json_data and canvas_result.json_data.get("objects"):
         polygons = canvas_result.json_data["objects"]
         rois = {}
@@ -386,6 +229,144 @@ def cardiac_roi(session_state, data, cest):
         if st.button("Submit ROI(s)", key="submit_other_rois"):
             return rois
     return None
+
+#take out mask_key resitricted to ROI 1
+def auto_segment_hydrogel(reference_image, masks_dict): # session_state removed, new params
+    """
+    Parameters:
+    - reference_image (np.array): The reference image (e.g., M0) to use for segmentation.
+    - masks_dict (dict): A dictionary of masks where keys are mask labels (e.g., 'ROI 1').
+
+    Returns:
+    - dict: A new dictionary containing the original and refined masks.
+            Returns an empty dict if reference_image is None.
+    """
+    if reference_image is None:
+        print("ERROR: Reference image is required for auto-segmentation. Returning empty masks.")
+        return {} # Return empty dict if critical input is missing
+
+    # Work on a copy of the masks dictionary to avoid modifying the original during iteration
+    # and to ensure we return a new dictionary.
+    processed_masks = masks_dict.copy() 
+    reference_image_squeezed = np.squeeze(reference_image)
+
+    segmented_count = 0
+    for mask_label, current_mask_data in masks_dict.items(): # Use processed_masks
+        if current_mask_data is None:
+            print(f"[WARNING] Mask '{mask_label}' is None. Skipping auto-segmentation for this mask.")
+            continue
+
+        image = np.copy(reference_image_squeezed) # Use the passed reference_image
+        mask = np.squeeze(current_mask_data) # Use current_mask_data from the loop
+        if image.shape != mask.shape:
+            print(f"[INFO] Resizing reference image from {image.shape} to match mask '{mask_label}' ({mask.shape}) for auto-segmentation.")
+            image = resize(image, mask.shape, preserve_range=True, anti_aliasing=True)
+    
+        assert image.shape == mask.shape, f"Shape mismatch after resize: {image.shape} vs {mask.shape} for mask '{mask_label}'"
+        masked_image = image * mask
+        
+        thresh = threshold_otsu(masked_image)
+        binary = masked_image > thresh
+        smoothed_binary = median(binary, footprint=morphology.disk(4))
+        refined_mask = smoothed_binary.astype(bool)
+
+        # Store the refined mask in the processed_masks dictionary
+        processed_masks[mask_label] = refined_mask
+
+        print(f"[SUCCESS] Auto-segmentation complete. Mask '{mask_label}' updated. Final mask shape: {refined_mask.shape}, Non-zero pixels: {np.count_nonzero(refined_mask)}")
+        segmented_count += 1
+    
+    if segmented_count > 0:
+        print(f"Auto-segmentation applied to {segmented_count} ROI(s).")
+    else:
+        print("No masks found or processed for auto-segmentation.")
+        
+    return processed_masks # Return the updated masks dictionary
+
+def create_multi_zone_masks(reference_image, masks_dict, dilation_pixels): # session_state removed, new params
+    """
+    Creates multiple concentric ring masks (Zone 1 and Zone 2) around ALL suitable
+    ROIs in a provided masks dictionary. Returns a new dictionary with all masks.
+
+    It skips automatically generated masks (like AHA segments or other ring zones)
+    when determining base ROIs.
+
+    Parameters:
+    - reference_image (np.array): The reference image for shape validation during mask creation.
+    - masks_dict (dict): A dictionary of masks (e.g., 'ROI 1', 'ROI 2', etc.).
+    - dilation_pixels (int): The thickness in pixels of each concentric ring (Zone 1 and Zone 2).
+
+    Returns:
+    - dict: A new dictionary containing all original and newly created masks.
+            Returns an empty dict if critical inputs are missing.
+    """
+    if reference_image is None or not masks_dict:
+        print("ERROR: Reference image or masks dictionary is missing for multi-zone mask creation. Returning empty masks.")
+        return {}
+
+    # Work on a copy of the masks dictionary
+    processed_masks = masks_dict.copy() 
+    reference_image_squeezed = np.squeeze(reference_image)
+
+    selem = morphology.disk(dilation_pixels)
+
+    zones_created_count = 0
+    # Iterate through all masks present in the input masks_dict
+    for original_label, base_mask_data in masks_dict.items(): # Iterate on input masks_dict
+        # --- Exclusion Criteria: Skip masks that shouldn't be base masks for new zones ---
+        if "_zone1_ring" in original_label or \
+           "_zone2_ring" in original_label or \
+           original_label in ['lv', 'myo', 'blood'] or \
+           original_label.startswith('AHA_'):
+            print(f"[INFO] Skipping multi-zone creation for '{original_label}' as it's an automatically generated/existing zone or cardiac segment.")
+            continue 
+
+        if base_mask_data is None:
+            print(f"[WARNING] Base mask for '{original_label}' is None. Skipping multi-zone creation for this mask.")
+            continue
+
+        base_mask_2d = np.squeeze(base_mask_data).astype(bool)
+        mask_original_shape = base_mask_2d.shape # Store original shape for final resize
+
+        if not np.any(base_mask_2d):
+            print(f"[WARNING] Base mask '{original_label}' is empty. Skipping multi-zone creation for this mask.")
+            continue 
+
+        # Ensure mask shape matches reference image slice shape for consistency during dilation
+        ref_image_shape = reference_image_squeezed.shape[:2] if reference_image_squeezed.ndim >=2 else reference_image_squeezed.shape
+
+        if base_mask_2d.shape != ref_image_shape:
+            print(f"[WARNING] Base mask '{original_label}' shape {base_mask_2d.shape} does not match reference image shape {ref_image_shape}. Resizing for zone creation.")
+            base_mask_2d = resize(base_mask_2d, ref_image_shape, order=0, preserve_range=True, anti_aliasing=False)
+            base_mask_2d = base_mask_2d.astype(bool)
+
+        # --- Generate Zone 1 (First Ring) for the current original_label ---
+        dilated_mask_1 = morphology.dilation(base_mask_2d, selem)
+        ring_zone_1_mask = dilated_mask_1 & ~base_mask_2d
+        
+        # Resize back to the original mask shape before storing
+        ring_zone_1_mask = resize(ring_zone_1_mask, mask_original_shape, order=0, preserve_range=True, anti_aliasing=False)
+        processed_masks[f"{original_label}_zone1_ring"] = ring_zone_1_mask.astype(bool)
+        print(f"[INFO] Ring Zone 1 created for '{original_label}'. Shape: {ring_zone_1_mask.shape}, Non-zero pixels: {np.count_nonzero(ring_zone_1_mask)}")
+
+        # --- Generate Zone 2 (Second Ring) for the current original_label ---
+        dilated_mask_2 = morphology.dilation(dilated_mask_1, selem)
+        ring_zone_2_mask = dilated_mask_2 & ~dilated_mask_1
+        
+        # Resize back to the original mask shape before storing
+        ring_zone_2_mask = resize(ring_zone_2_mask, mask_original_shape, order=0, preserve_range=True, anti_aliasing=False)
+        processed_masks[f"{original_label}_zone2_ring"] = ring_zone_2_mask.astype(bool)
+        print(f"[INFO] Ring Zone 2 created for '{original_label}'. Shape: {ring_zone_2_mask.shape}, Non-zero pixels: {np.count_nonzero(ring_zone_2_mask)}")
+        
+        zones_created_count += 1
+    
+    if zones_created_count > 0:
+        print(f"Multi-layered Spatial Zone analysis masks created for {zones_created_count} ROI(s) with thickness {dilation_pixels} pixels.")
+    else:
+        print("No suitable user-defined ROIs found to create multi-layered spatial zones.")
+
+    return processed_masks # Return the updated masks dictionary
+
 
 def cardiac_roi(image, size_ref_image=None):
     """
