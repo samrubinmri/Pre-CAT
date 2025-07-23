@@ -161,6 +161,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     pca = False
                     pixelwise = False
                     auto_segment = False
+                    spatial_zone_analysis = False
                     cest_type = st.radio('CEST acquisition type', ["Radial", "Rectilinear"], horizontal=True)
                     st.markdown(
                     """
@@ -193,8 +194,22 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                     if anatomy == "Other":
                         reference = st.toggle(
                             'Additional reference image', help="Use this option to load an additional reference image for ROI(s)/masking. By default, the unsaturated (S0/M0) image is used.")
+                        ring_dilation_pixels = 5
                         if reference:
                             auto_segment = st.toggle('Auto-segment reference image', help="Automatically segment the reference image to create a mask. This is useful for anatomical ROIs.")
+                            if auto_segment:
+                                spatial_zone_analysis = st.toggle('Enable Multi-Layered Spatial Zone Analysis', help = "Performs a multi layered spatial zone analysis leading to concentric ring zones around the ROI defined in auto_segment.")
+                                        # Add the new input for Ring Zone Thickness
+                                if spatial_zone_analysis:
+                                    st.subheader("Spatial Zone Analysis Settings")
+                                    ring_dilation_pixels = st.number_input(
+                                        "Ring Zone Thickness (pixels)",
+                                        min_value=1,
+                                        max_value=20,  # You can adjust the max_value as needed
+                                        value=5,       # Default thickness
+                                        step=1,
+                                        help="Define the thickness (in pixels) of the concentric ring for spatial zone analysis. Only applies if 'Enable Spatial Zone Analysis' is checked below."
+                                    )
                             all_fields_filled = False
                             reference_path = st.text_input('Input reference experiment number', help='Reference image assumed to be rectilinear. Please only use single slice images.')
                             if reference_path:
@@ -223,7 +238,7 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                             'Choose contrasts', help="Default contrasts are: amide, creatine, NOE. Water and MT are always fit.")
                         if choose_contrasts:
                             contrasts = ["NOE (-3.5 ppm)", "Amide", "Creatine", "Amine", "Hydroxyl", "NOE (-1.6 ppm)"]
-                            default_contrasts = ["NOE (-3.5 ppm)", "Amide", "Creatine", "NOE (-1.6 ppm)"]
+                            default_contrasts = ["NOE (-3.5 ppm)", "Amide",  "Amine", "Hydroxyl", "NOE (-1.6 ppm)"]
                             contrast_selection = st.pills ("Contrasts", contrasts, default=default_contrasts, selection_mode="multi")
                             st.session_state.custom_contrasts = contrast_selection
                         else:
@@ -348,6 +363,8 @@ with st.expander("Load data", expanded = not st.session_state.is_submitted):
                             st.session_state.submitted_data['moco_cest'] = moco_cest
                             st.session_state.submitted_data['pca'] = pca
                             st.session_state.submitted_data['auto_segment'] = auto_segment
+                            st.session_state.submitted_data['spatial_zone_analysis'] = spatial_zone_analysis
+                            st.session_state.submitted_data['ring_dilation_pixels'] = ring_dilation_pixels
                         if "WASSR" in selection: 
                             st.session_state.submitted_data['wassr_path'] = wassr_path
                             st.session_state.submitted_data['wassr_type'] = wassr_type
@@ -478,7 +495,9 @@ if st.session_state.is_submitted:
                     masks = st.session_state.user_geometry['masks']
                     if st.session_state.submitted_data.get('auto_segment', False):
                         draw_rois.auto_segment_hydrogel(st.session_state)
-                        st.success("Auto-segmentation complete!")
+                        st.success("Auto-segmentation complete for ROI 1!")
+                        if st.session_state.submitted_data.get('spatial_zone_analysis', False):
+                            draw_rois.create_multi_zone_masks(st.session_state, base_mask_key = 'ROI 1')
                     if st.session_state.submitted_data['organ'] == 'Cardiac':
                         st.session_state.user_geometry['masks']['lv'] = draw_rois.calc_lv_mask(masks)
                         draw_rois.aha_segmentation(image, st.session_state)

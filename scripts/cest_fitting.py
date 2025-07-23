@@ -10,7 +10,6 @@ import numpy as np
 from sklearn.metrics import mean_squared_error
 from scipy.optimize import curve_fit
 from scipy.interpolate import CubicSpline
-import pickle
 
 
 
