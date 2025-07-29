@@ -8,6 +8,9 @@ Created on Tue Jan  7 12:35:44 2025
 # --- Imports --- #
 # Standard library imports
 import os 
+import subprocess
+import sys
+import importlib.metadata
 from pathlib import Path 
 # Third-party imports
 import streamlit as st
@@ -36,6 +39,7 @@ def initialize_session_state():
         "reference": None,
         # Checklist for pipeline stages
         "pipeline_status": {
+            "install_done": False,
             "recon_done": False,
             "orientation_done": False,
             "processing_done": False,
@@ -106,8 +110,8 @@ def validate_double_angle(directory, theta_path, two_theta_path):
 
 def validate_fp_quesp(directory, quesp_path, t1_path):
     """
-    Check to make sure the sequence is actually fp_EPI
-    """ # Can remove when additional sequences are added
+    Check to make sure the sequence is actually fp_EPI.
+    """ 
     exp_quesp = BrukerMRI.ReadExperiment(directory, quesp_path)
     exp_t1 = BrukerMRI.ReadExperiment(directory, t1_path)
     check_quesp = exp_quesp.method['Method']
@@ -116,6 +120,64 @@ def validate_fp_quesp(directory, quesp_path, t1_path):
         return True, check_quesp, check_t1 
     else:
         return False, check_quesp, check_t1
+
+def validate_mrf(directory, mrf_path):
+    """
+    Check to make sure the sequece is actually fp_EPI.
+    """
+    exp_mrf = BrukerMRI.ReadExperiment(directory, mrf_path)
+    check_mrf = exp_mrf.method['Method']
+    if check_mrf != "<User:fp_EPI>":
+        return True, check_mrf
+    else:
+        return False, check_mrf
+
+#def validate_dict(mrf_full_path):
+    """
+    Check to see whether there's already a dictionary file.
+    """
+
+
+# --- MRF required tool functions --- #
+def check_mrf_tools_installed():
+    """
+    Checks if the required MRF packages are installed in the environment.
+    """
+    pypulseq_found = importlib.util.find_spec('pypulseq') is not None
+    bmcsimulator_found = importlib.util.find_spec('bmctool') is not None
+    return pypulseq_found and bmcsimulator_found
+
+def install_mrf_tools():
+    """
+    Runs the setup.py script for open-py-cest-mrf and displays the output.
+    """
+    setup_script_path = os.path.join('scripts', 'cest_mrf', 'open-py-cest-mrf', 'setup.py')
+    with st.spinner("Installing MRF tools... This may take a few minutes. Please do not close the window."):
+        st.info("Starting installation of pypulseq and BMCSimulator...")
+        st_functions.message_logging("Starting installation of pypulseq and BMCSimulator...", msg_type = 'info')
+        log_container = st.empty()
+        log_text = ""
+        # Use sys.executable to ensure we use the python from the current conda environment
+        process = subprocess.Popen(
+            [sys.executable, setup_script_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            universal_newlines=True
+        )
+        for line in process.stdout:
+            log_text += line
+            log_container.code(log_text)
+        process.wait()
+        if process.returncode == 0:
+            st.success("MRF tools installed successfully!")
+            st_functions.message_logging("MRF tools installed successfully!")
+            st.session_state.pipeline_status['install_done'] = True
+            st.rerun()
+        else:
+            st.error("Installation failed. Please check the log above for details.")
+            log_container.code(log_text)
 
 # --- UI functions --- #
 def render_sidebar():
@@ -319,9 +381,8 @@ def do_data_submission():
                             st.error(f"T1 map folder does not exist: {t1_full_path}")
                             quesp_validation = False
                         if quesp_folder_exists and t1_folder_exists:
-                            st.success("QUESP and T1 map folders found!")
-                            bad_method, check_quesp, check_t1 = validate_fp_quesp(folder_path, quesp_path, t1_path)
-                            if bad_method:
+                            bad_quesp_method, check_quesp, check_t1 = validate_fp_quesp(folder_path, quesp_path, t1_path)
+                            if bad_quesp_method:
                                 quesp_validation = False
                                 if check_quesp != "<User:fp_EPI>":
                                     st.error(f"Incorrect QUESP method detected: **{check_quesp}**. Only **<User:fp_EPI>** is supported.")
@@ -335,13 +396,37 @@ def do_data_submission():
             # CEST-MRF validation
             if "CEST-MRF" in selection:
                 if anatomy == 'Cardiac':
-                    mrf_validation = False
                     st.error("CEST-MRF analysis is only supported for non-cardiac ROIs at this time.")
                 else:
                     mrf_path = st.text_input('Input CEST-MRF experiment number', help="Currently, only CEST-MRF data acquired using the 'fp_EPI' sequence are supported.")
-                st.warning("No existing dictionary found. Dictionary generation will occur at runtime.")
-                st.error("CEST-MRF has not been completely implemented. Please delete this selection and try again.")
-                mrf_validation = False
+                    if mrf_path:
+                        mrf_full_path = os.path.join(folder_path, mrf_path)
+                        mrf_folder_exists = os.path.isdir(mrf_full_path)
+                        if not mrf_folder_exists:
+                            st.error(f"MRF folder does not exist: {mrf_full_path}")
+                            mrf_validation = False
+                        else:
+                            bad_mrf_method, check_mrf = validate_mrf(folder_path, mrf_path)
+                            if bad_mrf_method:
+                                st.error(f"Incorrect CEST-MRF method detected: **{check_mrf}**. Only **<User:fp_EPI>** is supported.")
+                                mrf_validation = False
+                            else:
+                                config_path = st.text_input('Input MRF config full path', help="Example config file available at */Pre-CAT/scripts/cest_mrf/example_config.py*")
+                                if config_path:
+                                    config_exists = os.path.isfile(config_path)
+                                    if not config_exists:
+                                        st.error(f"Config file does not exist: {config_path}")
+                                        mrf_validation = False
+                                    else:
+                                        dict_methods = ['Dot product', 'Deep learning']
+                                        mrf_method = st.pills("Dictionary matching method", dict_methods)
+                                        if mrf_method == 'Deep learning':
+                                            st.error("Deep learning recon has not been implemented. Please choose dot product matching for now.")
+                                            mrf_validation = False
+                                else:
+                                    all_fields_filled = False
+                    else:
+                        all_fields_filled = False
 
             # WASSR validation
             if "WASSR" in selection:
@@ -456,6 +541,10 @@ def do_data_submission():
                             st.session_state.submitted_data['t1_path'] = t1_path
                             st.session_state.submitted_data['quesp_type'] = quesp_type
                             st.session_state.submitted_data['fixed_fb'] = fixed_fb
+                        if "CEST-MRF" in selection:
+                            st.session_state.submitted_data['mrf_path'] = mrf_path
+                            st.session_state.submitted_data['config_path'] = config_path
+                            st.session_state.submitted_data['mrf_method'] = mrf_method
                         st.rerun()
             else:
                 if not all_fields_filled:
@@ -471,9 +560,20 @@ def do_processing_pipeline():
     # Retrieve submitted experiment types 
     submitted = st.session_state.submitted_data
     selection = [s.lower() for s in submitted.get('selection', [])]
+
+    # --- Stage 0: Check required package installations -- #
+    if not st.session_state.pipeline_status.get('install_done'):
+        if 'cest-mrf' in selection:
+            if not check_mrf_tools_installed():
+                install_mrf_tools()
+                return
+            else:
+                st_functions.message_logging('MRF tools found!')
+        st.session_state.pipeline_status['install_done'] = True
+
     # --- Stage 1: Reconstruction --- #
     # Reconstruct all selected data types if they haven't been already.
-    if not st.session_state.pipeline_status.get('recon_done', False):
+    if st.session_state.pipeline_status.get('install_done') and not st.session_state.pipeline_status.get('recon_done', False):
         with st.spinner("Reconstructing data..."):
             tasks_to_run = [exp for exp in selection if exp not in st.session_state.recon_data]
             for exp_type in tasks_to_run:
