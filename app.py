@@ -138,7 +138,11 @@ When using **Pre-CAT**, please remember the following:
         """)
         st.write("""## Citation
 This webapp is associated with the following paper, please cite this work when using **Pre-CAT**. \n
-Weigand-Whittier J, Wendland M, Lam B, et al. *Ungated, plug-and-play cardiac CEST-MRI using radial FLASH with segmented saturation*. Magn Reson Med (2024). 10.1002/mrm.30382""")
+Weigand-Whittier J, Wendland M, Lam B, et al. *Ungated, plug-and-play cardiac CEST-MRI using radial FLASH with segmented saturation*. Magn Reson Med (2024). 10.1002/mrm.30382. \n
+If you are using **Pre-CAT** for **CEST-MRF** analysis, please also cite the following. \n
+Vladimirov N, Cohen O, Heo H-Y, et al. *Quantitative molecular imaging using deep magnetic resonance fingerprinting*. Nat Protocols (2025). 10.1038/s41596-025-01152-w. \n
+Cohen O, Shuning H, McMahon MT, et al. *Rapid and quantitative chemical exchange saturation transfer (CEST) imaging with magnetic resonance fingerprinting (MRF)*. Magn Reson Med (2018). 10.1002/mrm.27221. 
+""")
         st_functions.inject_hover_email_css()
         st.write("## Contact")
         st.markdown(f"""
@@ -159,7 +163,7 @@ def do_data_submission():
     """
     Handles the data submission form.
     """
-    options = ["CEST", "QUESP", "WASSR", "DAMB1"]
+    options = ["CEST", "QUESP", "CEST-MRF", "WASSR", "DAMB1"]
     organs = ["Cardiac", "Other"]
     col1, col2 = st.columns((1,1))
     with col1:
@@ -173,6 +177,7 @@ def do_data_submission():
         
         cest_validation = True
         quesp_validation = True
+        mrf_validation = True
         wassr_validation = True
         damb1_validation = True
         all_fields_filled = True  
@@ -283,7 +288,7 @@ def do_data_submission():
                     quesp_validation = False
                     st.error("QUESP analysis is only supported for non-cardiac ROIs at this time.")
                 else:
-                    quesp_path = st.text_input('Input QUESP experiment number', help="Currently, only QUESP experiments run using the 'fp_EPI' sequence are supported.")
+                    quesp_path = st.text_input('Input QUESP experiment number', help="Currently, only QUESP data acquired using the 'fp_EPI' sequence are supported.")
                     t1_path = st.text_input('Input T1 mapping experiment number', help="Currently, only VTR RARE T1 mapping is supported.")
                     if quesp_path and t1_path:
                         fixed_fb = None
@@ -326,6 +331,17 @@ def do_data_submission():
                                 st.success("Method validation successful!")
                     else:
                          all_fields_filled = False
+
+            # CEST-MRF validation
+            if "CEST-MRF" in selection:
+                if anatomy == 'Cardiac':
+                    mrf_validation = False
+                    st.error("CEST-MRF analysis is only supported for non-cardiac ROIs at this time.")
+                else:
+                    mrf_path = st.text_input('Input CEST-MRF experiment number', help="Currently, only CEST-MRF data acquired using the 'fp_EPI' sequence are supported.")
+                st.warning("No existing dictionary found. Dictionary generation will occur at runtime.")
+                st.error("CEST-MRF has not been completely implemented. Please delete this selection and try again.")
+                mrf_validation = False
 
             # WASSR validation
             if "WASSR" in selection:
@@ -396,7 +412,7 @@ def do_data_submission():
                             st.success("Flip angle validation successful! ")
             
             # Check if all fields are filled before enabling submit
-            if all_fields_filled and (cest_validation and wassr_validation and damb1_validation and quesp_validation):
+            if all_fields_filled and (cest_validation and wassr_validation and mrf_validation and damb1_validation and quesp_validation):
                 if 'reference' in locals() and reference and reference_validation == False:
                     st.error("Please validate the additional reference image before submitting.")
                 else:
