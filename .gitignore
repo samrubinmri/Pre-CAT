@@ -1,2 +1,7 @@
+# Annoying files
 .DS_Store
 *.pyc
+
+# Compiled simulation library and cloned pypulseq
+/scripts/cest_mrf/open-py-cest-mrf/cest_mrf/sim_lib/build/
+/scripts/cest_mrf/open-py-cest-mrf/cest_mrf/pypulseq/
