@@ -130,14 +130,16 @@ def calc_mtr(images, powers, tsats, trecs, offsets_ppm):
             neg_idx = np.where((powers == power) & (offsets_ppm == -pos_offset))[0]
             pos_img = images[:,:,pos_idx]
             neg_img = images[:,:,neg_idx]
+            tsat = tsats[pos_idx[0]]
+            trec = trecs[pos_idx[0]]
             mtr_asym_img = np.squeeze(neg_img - pos_img)
             mtr_rex_img = np.squeeze(1/pos_img - 1/neg_img)
             map_data = {
                     'mtr_asym': mtr_asym_img, 
                     'mtr_rex': mtr_rex_img,
                     'b1': power, 
-                    'tsats': tsats,
-                    'trecs': trecs,
+                    'tsat': tsat,
+                    'trec': trec,
                     'offset': pos_offset
                 }
             mtr_maps.append(map_data)

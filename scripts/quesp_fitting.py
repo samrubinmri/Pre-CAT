@@ -39,7 +39,6 @@ def standard_model(b1, r1, tsat, trecs, fb, kb):
     # For scans after the first, calculate Zi based on the preceding trec
     if len(trecs) > 1:
         zi_values[1:] = 1 - np.exp(-r1 * trecs[:-1])
-
     alpha = omega**2 / (omega**2 + kb**2)
     return (fb * kb * alpha) / (r1 + fb * kb * alpha) + (zi_values - 1) * np.exp(-r1 * tsat) - (zi_values - r1 / (r1 + fb * kb * alpha)) * np.exp(-(r1 + fb * kb * alpha) * tsat)
 
@@ -73,7 +72,7 @@ def fit_quesp_map(quesp_data, t1_pixel_fits, masks, fit_type, fixed_fb=None):
     df = pd.DataFrame(quesp_data['mtr_maps'])
 
     # Check for constant saturation time
-    if df['tsats'].nunique() > 1:
+    if df['tsat'].nunique() > 1:
         st.error(
             "Saturation times ($t_{sat}$) are not constant. This may be a QUEST "
             "experiment, which is not currently supported. Please use data "
@@ -101,7 +100,7 @@ def fit_quesp_map(quesp_data, t1_pixel_fits, masks, fit_type, fixed_fb=None):
         pools_data[pool_name] = {
             'b1_values': offset_df['b1'].values * 1e-6,
             'tsat': offset_df['tsat'].iloc[0] * 1e-3, # tsat is constant
-            'trecs': offset_df['trecs'].values, # Use array of trecs
+            'trecs': offset_df['trec'].values, # Use array of trecs
             'mtr_asym_stack': np.stack(offset_df['mtr_asym'].values, axis=-1),
             'mtr_rex_stack': np.stack(offset_df['mtr_rex'].values, axis=-1)
         }

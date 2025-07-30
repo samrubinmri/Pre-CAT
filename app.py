@@ -687,7 +687,7 @@ def do_processing_pipeline():
                         corrected = load_study.thermal_drift({"imgs": oriented, "offsets": recon['offsets']})
                         st.session_state.processed_data[exp_type] = corrected
                     elif 'powers' in recon: # QUESP
-                        corrected = load_study.process_quesp({"imgs": oriented, "powers": recon['powers'], "tsats": recon['tsats'], "trec": recon['trec'], "offsets": recon['offsets']})
+                        corrected = load_study.process_quesp({"imgs": oriented, "powers": recon['powers'], "tsats": recon['tsats'], "trecs": recon['trecs'], "offsets": recon['offsets']})
                         st.session_state.processed_data[exp_type] = corrected
                     else: # DAMB1
                         st.session_state.processed_data[exp_type] = {"imgs": oriented, "nominal_flip": recon['nominal_flip']}
