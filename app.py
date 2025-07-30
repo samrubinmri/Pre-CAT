@@ -411,7 +411,7 @@ def do_data_submission():
                                 st.error(f"Incorrect CEST-MRF method detected: **{check_mrf}**. Only **<User:fp_EPI>** is supported.")
                                 mrf_validation = False
                             else:
-                                config_path = st.text_input('Input MRF config full path', help="Example config file available at */Pre-CAT/scripts/cest_mrf/example_config.py*")
+                                config_path = st.text_input('Input MRF config full path', help="Example config file available at */Pre-CAT/configs/example_config.py*")
                                 if config_path:
                                     config_exists = os.path.isfile(config_path)
                                     if not config_exists:

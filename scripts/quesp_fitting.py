@@ -26,11 +26,22 @@ pool_dict = {
 }
 
 # --- Model definitions --- #
-def standard_model(b1, r1, tsat, trec, fb, kb):
+def standard_model(b1, r1, tsat, trecs, fb, kb):
+    """
+    MODIFIED: This model now handles a series of recovery times (trecs).
+    The initial magnetization (Zi) for the first scan is 1. For subsequent scans,
+    Zi is calculated based on the preceding trec.
+    """
     omega = GAMMA * b1
+
+    # Calculate Zi for each scan based on the recovery from the *previous* scan
+    zi_values = np.ones_like(b1) # Initialize all Zi to 1
+    # For scans after the first, calculate Zi based on the preceding trec
+    if len(trecs) > 1:
+        zi_values[1:] = 1 - np.exp(-r1 * trecs[:-1])
+
     alpha = omega**2 / (omega**2 + kb**2)
-    zi = 1 - np.exp(-r1 * trec)
-    return (fb * kb * alpha) / (r1 + fb * kb * alpha) + (zi - 1) * np.exp(-r1 * tsat) - (zi - r1 / (r1 + fb * kb * alpha)) * np.exp(-(r1 + fb * kb * alpha) * tsat)
+    return (fb * kb * alpha) / (r1 + fb * kb * alpha) + (zi_values - 1) * np.exp(-r1 * tsat) - (zi_values - r1 / (r1 + fb * kb * alpha)) * np.exp(-(r1 + fb * kb * alpha) * tsat)
 
 def inverse_model(b1, r1, fb, kb):
     omega = GAMMA * b1
@@ -38,7 +49,7 @@ def inverse_model(b1, r1, fb, kb):
 
 def omega_plot(b1, r1, fb, kb):
     omega = GAMMA * b1
-    return r1 / (fb * kb) + r1 * kb / (fb * omega**2) 
+    return r1 / (fb * kb) + r1 * kb / (fb * omega**2)
 
 def t1_model(tr, m0, t1):
     return m0 * (1 - np.exp(-tr / t1))
@@ -58,16 +69,30 @@ def fit_quesp_map(quesp_data, t1_pixel_fits, masks, fit_type, fixed_fb=None):
     if not quesp_data:
         st.error("QUESP data is empty. Cannot perform fit.")
         return {}
+
     df = pd.DataFrame(quesp_data['mtr_maps'])
+
+    # Check for constant saturation time
+    if df['tsats'].nunique() > 1:
+        st.error(
+            "Saturation times ($t_{sat}$) are not constant. This may be a QUEST "
+            "experiment, which is not currently supported. Please use data "
+            "with a single $t_{sat}$ value for QUESP analysis."
+        )
+        return {}
+
     unique_offsets = df['offset'].unique()
     results_by_roi = {}
+
     # Pre-calculate the total number of fits for the progress bar
     total_fits = sum(len(t1_pixel_fits.get(label, [])) for label in masks) * len(unique_offsets)
     if total_fits == 0:
         st.warning("No pixels to fit for QUESP analysis.")
         return {}
+
     progress_bar = st.progress(0, text="Starting QUESP fitting...")
     fit_counter = 0
+
     # Prepare data for each chemical pool once to be efficient
     pools_data = {}
     for offset in unique_offsets:
@@ -75,8 +100,8 @@ def fit_quesp_map(quesp_data, t1_pixel_fits, masks, fit_type, fixed_fb=None):
         offset_df = df[df['offset'] == offset]
         pools_data[pool_name] = {
             'b1_values': offset_df['b1'].values * 1e-6,
-            'tsat': offset_df['tsat'].iloc[0] * 1e-3,
-            'trec': offset_df['trec'].iloc[0] * 1e-3,
+            'tsat': offset_df['tsat'].iloc[0] * 1e-3, # tsat is constant
+            'trecs': offset_df['trecs'].values, # Use array of trecs
             'mtr_asym_stack': np.stack(offset_df['mtr_asym'].values, axis=-1),
             'mtr_rex_stack': np.stack(offset_df['mtr_rex'].values, axis=-1)
         }
@@ -85,19 +110,36 @@ def fit_quesp_map(quesp_data, t1_pixel_fits, masks, fit_type, fixed_fb=None):
             if roi_label not in results_by_roi:
                 results_by_roi[roi_label] = {}
             results_by_roi[roi_label][pool_name] = {'fb_values': [], 'kb_values': [], 'r2_values': []}
-    # Iterate through each ROI
+
+    # Iterate through each ROI to perform checks and then fit
     for roi_label, mask in masks.items():
         if roi_label not in t1_pixel_fits:
             continue
         y_coords, x_coords = np.where(mask)
         t1_values_for_roi = t1_pixel_fits[roi_label]
-        if fit_type == 'Inverse (MTRrex)':
-            # Use the mean T1 of the current ROI (in seconds)
-            t1_mean_s = np.nanmean(np.array(t1_values_for_roi) * 1e-3)
-            # Use the saturation time (tsat) from the first pool for the check
-            tsat_check = next(iter(pools_data.values()))['tsat']
-            if t1_mean_s and tsat_check < 3 * t1_mean_s:
-                st_functions.message_logging(f"For **{roi_label}**, saturation may not be at steady-state (tp = {tp_check:.2f} s, Mean T₁ = {t1_mean_s:.2f} s). The inverse model is most accurate when tp > {3 * t1_mean_s:.2f} s.", msg_type='warning')
+
+        # Calculate mean T1 for assumption checks
+        t1_mean_s = np.nanmean(np.array(t1_values_for_roi) * 1e-3)
+        
+        if t1_mean_s: # Proceed only if mean T1 is a valid number
+            if fit_type in ['Inverse (MTRrex)', 'Omega Plot']:
+                trecs_s = next(iter(pools_data.values()))['trecs']
+                tsat_s = next(iter(pools_data.values()))['tsat']
+                if np.any(trecs_s < 5 * t1_mean_s):
+                    st_functions.message_logging(
+                        f"For **{roi_label}**, full recovery may not be achieved. "
+                        f"One or more recovery times ($T_{{rec}}$) are less than $5 \\times$ the mean $T_1$ ({t1_mean_s:.2f} s). "
+                        f"This can affect the accuracy of MTRrex and Omega Plot models.",
+                        msg_type='warning'
+                    )
+                if tsat_s < 3 * t1_mean_s:
+                    st_functions.message_logging(
+                        f"For **{roi_label}**, the steady-state saturation assumption may be invalid. "
+                        f"The saturation time ($t_{{sat}}$ = {tsat_s:.2f} s) is less than $3 \\times$ the mean $T_1$ ({t1_mean_s:.2f} s). "
+                        f"This can affect the accuracy of the MTRrex and Omega Plot model.",
+                        msg_type='warning'
+                    )
+                
         # Iterate through each pixel in the current ROI
         for i in range(len(y_coords)):
             y, x = y_coords[i], x_coords[i]
@@ -106,15 +148,17 @@ def fit_quesp_map(quesp_data, t1_pixel_fits, masks, fit_type, fixed_fb=None):
             for pool_name, data in pools_data.items():
                 fit_counter += 1
                 progress_bar.progress(fit_counter / total_fits, text=f"Fitting {pool_name} in {roi_label}...")
+
                 if np.isnan(t1_val_ms) or t1_val_ms == 0:
                     results_by_roi[roi_label][pool_name]['fb_values'].append(np.nan)
                     results_by_roi[roi_label][pool_name]['kb_values'].append(np.nan)
                     results_by_roi[roi_label][pool_name]['r2_values'].append(np.nan)
                     continue
+
                 r1_pixel = 1.0 / (t1_val_ms * 1e-3)
                 if fixed_fb is not None:
                     if fit_type == 'Standard (MTRasym)':
-                        model_to_fit = lambda b1, kb: standard_model(b1, r1_pixel, data['tsat'], data['trec'], fixed_fb, kb)
+                        model_to_fit = lambda b1, kb: standard_model(b1, r1_pixel, data['tsat'], data['trecs'], fixed_fb, kb)
                     elif fit_type == 'Inverse (MTRrex)':
                         model_to_fit = lambda b1, kb: inverse_model(b1, r1_pixel, fixed_fb, kb)
                     elif fit_type == 'Omega Plot':
@@ -123,19 +167,21 @@ def fit_quesp_map(quesp_data, t1_pixel_fits, masks, fit_type, fixed_fb=None):
                     bounds = ([0.1], [5000])
                 else:
                     if fit_type == 'Standard (MTRasym)':
-                        model_to_fit = lambda b1, fb, kb: standard_model(b1, r1_pixel, data['tsat'], data['trec'], fb, kb)
-                    elif fit_type == 'Inverse (MTRrex)': 
+                        model_to_fit = lambda b1, fb, kb: standard_model(b1, r1_pixel, data['tsat'], data['trecs'], fb, kb)
+                    elif fit_type == 'Inverse (MTRrex)':
                         model_to_fit = lambda b1, fb, kb: inverse_model(b1, r1_pixel, fb, kb)
                     elif fit_type == 'Omega Plot':
                         model_to_fit = lambda b1, fb, kb: omega_plot(b1, r1_pixel, fb, kb)
                     p0=[0.01, 1000]
                     bounds=([0, 0.1], [10, 5000])
+
                 if fit_type == 'Standard (MTRasym)':
                     curve = data['mtr_asym_stack'][y, x, :]
                 elif fit_type == 'Inverse (MTRrex)':
                     curve = data['mtr_rex_stack'][y, x, :]
                 elif fit_type == 'Omega Plot':
                     curve = 1 / data['mtr_rex_stack'][y, x, :]
+
                 try:
                     popt, _ = curve_fit(
                         model_to_fit, data['b1_values'], curve,
@@ -154,6 +200,7 @@ def fit_quesp_map(quesp_data, t1_pixel_fits, masks, fit_type, fixed_fb=None):
                     results_by_roi[roi_label][pool_name]['fb_values'].append(np.nan)
                     results_by_roi[roi_label][pool_name]['kb_values'].append(np.nan)
                     results_by_roi[roi_label][pool_name]['r2_values'].append(np.nan)
+
     progress_bar.empty()
     st_functions.message_logging("QUESP fitting complete!")
     return results_by_roi
@@ -193,4 +240,3 @@ def fit_t1_map(t1_data, masks):
     progress_bar.progress(1.0, text="T₁ map fitting complete.")
     progress_bar.empty()
     return pixelwise_fits
-    
