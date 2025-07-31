@@ -583,7 +583,8 @@ def do_processing_pipeline():
         if 'cest-mrf' in selection:
             load_mrf.write_yaml(submitted['mrf_config'])
             load_mrf.seq_from_method(submitted['mrf_path'], submitted['folder_path'], submitted['mrf_config'])
-
+            load_mrf.generate_dictionary(submitted['mrf_config'])
+            return
        # st.session_state.pipeline_state['mrf_gen_done'] = True
 
     # --- Stage 1: Reconstruction --- #

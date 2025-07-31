@@ -26,8 +26,8 @@ def build_config_from_file(config_path):
 
     # --- Water Pool ---
     config['water_pool'] = {
-        't1': getattr(user_config, 'water_t1', np.array([1.5])).tolist(),
-        't2': getattr(user_config, 'water_t2', np.array([0.1])).tolist(),
+        't1': getattr(user_config, 't1', np.array([1.5])).tolist(),
+        't2': getattr(user_config, 't2', np.array([0.1])).tolist(),
         'f': 1
     }
 
@@ -39,9 +39,9 @@ def build_config_from_file(config_path):
     config['cest_pool'][pool_b_name] = {
         't1': [getattr(user_config, 'pool_b_t1', 1.0)],
         't2': [getattr(user_config, 'pool_b_t2', 0.01)],
-        'k': getattr(user_config, 'pool_b_k', np.array([500])).tolist(),
+        'k': getattr(user_config, 'k_b', np.array([500])).tolist(),
         'dw': getattr(user_config, 'pool_b_dw', 2.0),
-        'f': getattr(user_config, 'pool_b_f', np.array([0.001])).tolist()
+        'f': getattr(user_config, 'f_b', np.array([0.001])).tolist()
     }
 
     # Optional MT Pool (Pool C) - check if it exists in the user's file
@@ -50,9 +50,9 @@ def build_config_from_file(config_path):
         config['cest_pool'][pool_c_name] = {
             't1': [getattr(user_config, 'pool_c_t1', 1.0)],
             't2': [getattr(user_config, 'pool_c_t2', 20e-6)],
-            'k': getattr(user_config, 'pool_c_k', 50.0),
-            'dw': getattr(user_config, 'pool_c_dw', -2.5),
-            'f': getattr(user_config, 'pool_c_f', 0.05)
+            'k': getattr(user_config, 'k_c', np.array([50])).tolist(),
+        'dw': getattr(user_config, 'pool_b_dw', 2.0),
+        'f': getattr(user_config, 'f_c', np.array([0.01])).tolist()
         }
 
     # --- Scanner Info ---

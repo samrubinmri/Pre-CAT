@@ -11,7 +11,8 @@ class ParamsMRF(Params):
         self.num_comb = 0
         self.n_cest_pools = 0
 
-        super().__init__(set_defaults)
+        #super().__init__(set_defaults)
+        super().__init__() # JWW
 
     def _transform_dict(self, dictionary):
         """

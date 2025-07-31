@@ -10,18 +10,24 @@ import os
 import scripts.BrukerMRI as bruker
 import pypulseq as pp
 import streamlit as st
-from cest_mrf.write_scenario import write_yaml_dict
 from custom import st_functions
-from cest_mrf.dictionary.generation import generate_mrf_cest_dictionary
+
+def generate_dictionary(cfg):
+	from cest_mrf.dictionary.generation import generate_mrf_cest_dictionary
+	with st.spinner("Generating CEST-MRF dictionary. This may take quite some time..."):
+		_ = generate_mrf_cest_dictionary(seq_fn=cfg['seq_fn'], param_fn=cfg['yaml_fn'], dict_fn=cfg['dict_fn'], num_workers=cfg['num_workers'], axes='xy')
+
 
 def write_yaml(cfg):
 	"""
     Writes the configuration dictionary to a YAML file using the path from the config.
     """
+	from cest_mrf.write_scenario import write_yaml_dict
 	full_path = cfg['yaml_fn']
 	output_dir = os.path.dirname(full_path)
 	os.makedirs(output_dir, exist_ok=True)
 	write_yaml_dict(cfg, full_path)
+	st.success(f"YAML configuration saved to: {full_path}")
 	st_functions.message_logging(f"YAML configuration saved to: {full_path}")
 
 def seq_from_method(num, directory, cfg):
@@ -111,4 +117,5 @@ def write_sequence(seq_defs, seq_fn, cfg):
 	os.makedirs(output_dir, exist_ok=True)
     # Write the file
 	seq.write(full_path)
+	st.success(f"Sequence file saved to: {full_path}")
 	st_functions.message_logging(f"Sequence file saved to: {full_path}")

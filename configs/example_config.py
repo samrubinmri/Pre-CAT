@@ -39,7 +39,7 @@ k_c = np.arange(1.0, 50.0 + 0.5, 0.5)
 f_c = np.arange(0, 0.5 + 0.01, 0.01)  # Proton fraction [0,1]
 
 # ## Simulation settings
-num_workers = 18 # Number of CPU cores to use
+num_workers = 4 # Number of CPU cores to use
 
 # ====================================================================
 # DO NOT EDIT BELOW THIS LINE (Handled by the parser)
