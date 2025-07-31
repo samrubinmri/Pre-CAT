@@ -11,13 +11,18 @@ import scripts.BrukerMRI as bruker
 import pypulseq as pp
 import streamlit as st
 from cest_mrf.write_scenario import write_yaml_dict
+from custom import st_functions
+from cest_mrf.dictionary.generation import generate_mrf_cest_dictionary
 
 def write_yaml(cfg):
-	output_dir = 'configs'
-	os.makedirs(output_dir, exist_ok=True) 
-	full_path = os.path.join(output_dir, seq_fn)
+	"""
+    Writes the configuration dictionary to a YAML file using the path from the config.
+    """
+	full_path = cfg['yaml_fn']
+	output_dir = os.path.dirname(full_path)
+	os.makedirs(output_dir, exist_ok=True)
 	write_yaml_dict(cfg, full_path)
-
+	st_functions.message_logging(f"YAML configuration saved to: {full_path}")
 
 def seq_from_method(num, directory, cfg):
 	"""
@@ -55,7 +60,6 @@ def seq_from_method(num, directory, cfg):
 	seq_fn = cfg['seq_fn']
 	seqid = os.path.splitext(seq_fn)[1][1:]
 	seq_defs['seq_id_string'] = seqid
-	st.write(seq_defs)
 	seq = write_sequence(seq_defs, seq_fn, cfg)
 	return seq
 
@@ -101,8 +105,10 @@ def write_sequence(seq_defs, seq_fn, cfg):
 	for field in def_fields:
 		seq.set_definition(field, seq_defs[field])
     # Write seq
-	output_dir = 'configs'
-	os.makedirs(output_dir, exist_ok=True) # Create the directory if it doesn't exist
-	full_path = os.path.join(output_dir, seq_fn)
+	full_path = cfg['seq_fn']
+    # Ensure the directory for the file exists
+	output_dir = os.path.dirname(full_path)
+	os.makedirs(output_dir, exist_ok=True)
+    # Write the file
 	seq.write(full_path)
-	return seq
+	st_functions.message_logging(f"Sequence file saved to: {full_path}")

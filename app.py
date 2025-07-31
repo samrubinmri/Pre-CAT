@@ -139,29 +139,29 @@ def validate_mrf(directory, mrf_path):
     Check to see whether there's already a dictionary file.
     """
 
-
 # --- MRF required tool functions --- #
 def check_mrf_tools_installed():
     """
     Checks if the required MRF packages are installed in the environment.
     """
+    cest_mrf_found = importlib.util.find_spec('cest_mrf') is not None
     pypulseq_found = importlib.util.find_spec('pypulseq') is not None
-    bmcsimulator_found = importlib.util.find_spec('bmctool') is not None
-    return pypulseq_found and bmcsimulator_found
+    bmcsimulator_found = importlib.util.find_spec('BMCSimulator') is not None
+    return cest_mrf_found and pypulseq_found and bmcsimulator_found
 
 def install_mrf_tools():
     """
     Runs the setup.py script for open-py-cest-mrf and displays the output.
     """
-    setup_script_path = os.path.join('scripts', 'cest_mrf', 'open-py-cest-mrf', 'setup.py')
+    setup_script_path = os.path.join('open-py-cest-mrf', 'setup.py')
     with st.spinner("Installing MRF tools... This may take a few minutes. Please do not close the window."):
-        st.info("Starting installation of pypulseq and BMCSimulator...")
-        st_functions.message_logging("Starting installation of pypulseq and BMCSimulator...", msg_type = 'info')
+        st.info("Starting installation of CEST-MRF tools...")
+        st_functions.message_logging("Starting installation of CEST-MRF tools...", msg_type = 'info')
         log_container = st.empty()
         log_text = ""
         # Use sys.executable to ensure we use the python from the current conda environment
         process = subprocess.Popen(
-            [sys.executable, setup_script_path],
+            [sys.executable, setup_script_path, 'install'],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,

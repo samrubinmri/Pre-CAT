@@ -41,14 +41,14 @@ f_c = np.arange(0, 0.5 + 0.01, 0.01)  # Proton fraction [0,1]
 # ## Simulation settings
 num_workers = 18 # Number of CPU cores to use
 
-# ## Filenames for the sequence and dictionary output
-yaml_fn = 'scenario.yaml'
-seq_fn = 'acq_protocol.seq'
-dict_fn = 'dict.mat'
-
 # ====================================================================
 # DO NOT EDIT BELOW THIS LINE (Handled by the parser)
 # ====================================================================
+
+# ## Filenames for the sequence and dictionary output
+yaml_fn = 'configs/scenario.yaml'
+seq_fn = 'configs/acq_protocol.seq'
+dict_fn = 'configs/dict.mat'
 
 # ## Other fixed parameters
 scale = 1

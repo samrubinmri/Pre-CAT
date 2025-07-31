@@ -24,7 +24,7 @@ BMCSimulator_module = Extension(name='_BMCSimulator',
                                 sources=['BMCSimulator.i', 'BMCSim.cpp','BMCSimulator.cpp', 'SimulationParameters.cpp',
                                          'ExternalSequence.cpp'],
                                 include_dirs=[eigen_path, np_path, np_path_np],
-                                extra_compile_args=["-O2"],
+                                extra_compile_args=["-O2", "-std=c++14"], ## JWW added c++14 for M1 Mac
                                 swig_opts=['-c++'],
                                 language='c++'
                                 )
