@@ -122,15 +122,7 @@ def fit_quesp_map(quesp_data, t1_pixel_fits, masks, fit_type, fixed_fb=None):
         
         if t1_mean_s: # Proceed only if mean T1 is a valid number
             if fit_type in ['Inverse (MTRrex)', 'Omega Plot']:
-                trecs_s = next(iter(pools_data.values()))['trecs']
                 tsat_s = next(iter(pools_data.values()))['tsat']
-                if np.any(trecs_s < 5 * t1_mean_s):
-                    st_functions.message_logging(
-                        f"For **{roi_label}**, full recovery may not be achieved. "
-                        f"One or more recovery times ($T_{{rec}}$) are less than $5 \\times$ the mean $T_1$ ({t1_mean_s:.2f} s). "
-                        f"This can affect the accuracy of MTRrex and Omega Plot models.",
-                        msg_type='warning'
-                    )
                 if tsat_s < 3 * t1_mean_s:
                     st_functions.message_logging(
                         f"For **{roi_label}**, the steady-state saturation assumption may be invalid. "

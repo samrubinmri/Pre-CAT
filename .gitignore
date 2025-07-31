@@ -3,5 +3,12 @@
 *.pyc
 
 # Compiled simulation library and cloned pypulseq
-/scripts/cest_mrf/open-py-cest-mrf/cest_mrf/sim_lib/build/
-/scripts/cest_mrf/open-py-cest-mrf/cest_mrf/pypulseq/
+/open-py-cest-mrf/cest_mrf/sim_lib/build/
+/open-py-cest-mrf/cest_mrf/pypulseq/
+/open-py-cest-mrf/cest_mrf/sim_lib/BMCSimulator.py
+/open-py-cest-mrf/cest_mrf/sim_lin/BMCSimulator_wrap.cpp
+
+# Ignore all files in configs directory
+configs/*
+# But do NOT ignore example_config.py
+!configs/example_config.py

@@ -16,6 +16,7 @@ from pathlib import Path
 import streamlit as st
 # Local application imports
 from scripts import load_study, pre_processing, draw_rois, cest_fitting, quesp_fitting, plotting, plotting_quesp, plotting_wassr, plotting_damb1, BrukerMRI
+from scripts.mrf_scripts import load_mrf, parse_config
 from custom import st_functions
 
 # --- Constants for app setup --- #
@@ -40,6 +41,7 @@ def initialize_session_state():
         # Checklist for pipeline stages
         "pipeline_status": {
             "install_done": False,
+            "mrf_gen_done": False,
             "recon_done": False,
             "orientation_done": False,
             "processing_done": False,
@@ -418,10 +420,15 @@ def do_data_submission():
                                         st.error(f"Config file does not exist: {config_path}")
                                         mrf_validation = False
                                     else:
-                                        dict_methods = ['Dot product', 'Deep learning']
-                                        mrf_method = st.pills("Dictionary matching method", dict_methods)
-                                        if mrf_method == 'Deep learning':
-                                            st.error("Deep learning recon has not been implemented. Please choose dot product matching for now.")
+                                        try:
+                                            config = parse_config.build_config_from_file(config_path)
+                                            dict_methods = ['Dot product', 'Deep learning']
+                                            mrf_method = st.pills("Dictionary matching method", dict_methods, default='Dot product')
+                                            if mrf_method == 'Deep learning':
+                                                st.error("Deep learning recon has not been implemented. Please choose dot product matching for now.")
+                                                mrf_validation = False
+                                        except Exception as e:
+                                            st.error(f"Error processing config file: {e}")
                                             mrf_validation = False
                                 else:
                                     all_fields_filled = False
@@ -543,7 +550,7 @@ def do_data_submission():
                             st.session_state.submitted_data['fixed_fb'] = fixed_fb
                         if "CEST-MRF" in selection:
                             st.session_state.submitted_data['mrf_path'] = mrf_path
-                            st.session_state.submitted_data['config_path'] = config_path
+                            st.session_state.submitted_data['mrf_config'] = config
                             st.session_state.submitted_data['mrf_method'] = mrf_method
                         st.rerun()
             else:
@@ -571,9 +578,17 @@ def do_processing_pipeline():
                 st_functions.message_logging('MRF tools found!')
         st.session_state.pipeline_status['install_done'] = True
 
+    # --- Stage 0.5: Set up all required MRF files --- #
+    if st.session_state.pipeline_status.get('install_done') and not st.session_state.pipeline_status.get('mrf_gen_done', False):
+        if 'cest-mrf' in selection:
+            load_mrf.write_yaml(submitted['mrf_config'])
+            load_mrf.seq_from_method(submitted['mrf_path'], submitted['folder_path'], submitted['mrf_config'])
+
+       # st.session_state.pipeline_state['mrf_gen_done'] = True
+
     # --- Stage 1: Reconstruction --- #
     # Reconstruct all selected data types if they haven't been already.
-    if st.session_state.pipeline_status.get('install_done') and not st.session_state.pipeline_status.get('recon_done', False):
+    if st.session_state.pipeline_status.get('mrf_gen_done') and not st.session_state.pipeline_status.get('recon_done', False):
         with st.spinner("Reconstructing data..."):
             tasks_to_run = [exp for exp in selection if exp not in st.session_state.recon_data]
             for exp_type in tasks_to_run:

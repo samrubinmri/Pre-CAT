@@ -21,7 +21,7 @@ t2 = np.arange(40.0, 130.0 + 10, 10) / 1000  # (s)
 # ## Solute pool (b)
 pool_b_name = 'Cr'
 pool_b_dw = 2.0  # Chemical shift of the CEST pool in [ppm]
-pool_b_t1 = np.nan  # (s) 
+pool_b_t1 = 2.5  # (s) 
 pool_b_t2 = 1e-3  # (s)
 pool_b_num_exchangeable_protons = 4.0  # Number of exchangeable solute protons
 pool_b_concentration = np.arange(2.0, 100.0 + 2.0, 2.0)  # Solute concentration (mM)
@@ -32,7 +32,7 @@ f_b = pool_b_num_exchangeable_protons * pool_b_concentration / 111e3  # Proton f
 # ## MT pool (c)
 pool_c_name = 'MT'
 pool_c_dw = -2.5  # Chemical shift of the CEST pool in [ppm]
-pool_c_t1 = np.nan  # (s) 
+pool_c_t1 = 2.5  # (s) 
 pool_c_t2 = 40e-6  # (s)
 k_c = np.arange(1.0, 50.0 + 0.5, 0.5)
 # Proton fraction can be defined directly OR calculated from concentration
@@ -41,15 +41,16 @@ f_c = np.arange(0, 0.5 + 0.01, 0.01)  # Proton fraction [0,1]
 # ## Simulation settings
 num_workers = 18 # Number of CPU cores to use
 
+# ## Filenames for the sequence and dictionary output
+yaml_fn = 'scenario.yaml'
+seq_fn = 'acq_protocol.seq'
+dict_fn = 'dict.mat'
+
 # ====================================================================
 # DO NOT EDIT BELOW THIS LINE (Handled by the parser)
 # ====================================================================
 
-# Filenames for the sequence and dictionary output
-yaml_fn = 'scenario.yaml'
-seq_fn = 'acq_protocol.seq'
-dict_fn = 'dict.mat'
-# Other fixed parameters
+# ## Other fixed parameters
 scale = 1
 reset_init_mag = 0
 verbose = 0
