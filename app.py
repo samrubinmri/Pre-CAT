@@ -585,7 +585,7 @@ def do_processing_pipeline():
             load_mrf.seq_from_method(submitted['mrf_path'], submitted['folder_path'], submitted['mrf_config'])
             load_mrf.generate_dictionary(submitted['mrf_config'])
             return
-       # st.session_state.pipeline_state['mrf_gen_done'] = True
+        st.session_state.pipeline_status['mrf_gen_done'] = True
 
     # --- Stage 1: Reconstruction --- #
     # Reconstruct all selected data types if they haven't been already.
