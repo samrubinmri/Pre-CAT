@@ -17,6 +17,9 @@ Run the following command inside the terminal (preferably in a clean conda env o
 
 The argument `-e` allows installation in editable mode, so you can change sources inside your local copy.
 
+> ⚠ **Note for Pre-CAT users:**  
+> Installation is handled automatically by **Pre-CAT**. Simply set up a new environment with the associated `environment.yml` file and run CEST-MRF analysis.
+
 ## Structure:
 - `cest_mrf/simulation/*` - this folder contains the sources of the simulation function and SimulationParametersMRF class.
 - `cest_mrf/sequence/*` - this folder contains the sources of functions that create sequences and save them in `.seq` files
