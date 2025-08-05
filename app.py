@@ -829,12 +829,12 @@ def display_results():
             plotting_quesp.plot_t1_map(st.session_state.fits['t1'], st.session_state.processed_data['quesp']['m0'], st.session_state.user_geometry['masks'], save_path)
         with col2:
             plotting.show_rois(st.session_state.processed_data['quesp']['m0'], st.session_state.user_geometry['masks'], save_path)
-        plotting_quesp.plot_quesp_maps(st.session_state.fits['quesp'], st.session_state.user_geometry['masks'], st.session_state.processed_data['quesp']['m0'], save_path)
-        st.subheader("Statistics")
-        stats_df = plotting_quesp.calculate_quesp_stats(st.session_state.fits['quesp'], st.session_state.fits['t1'])
+        quespmin, quespmax = st.slider("Percentile range for plots and statistics display:", 0, 100, value=(5, 95))
+        st.warning(f'Plot colorbars and statistics are displayed within the {quespmin}-{quespmax}th percentile range per ROI.')
+        plotting_quesp.plot_quesp_maps(st.session_state.fits['quesp'], st.session_state.user_geometry['masks'], st.session_state.processed_data['quesp']['m0'], save_path, quespmin, quespmax)
+        stats_df = plotting_quesp.calculate_quesp_stats(st.session_state.fits['quesp'], st.session_state.fits['t1'], quespmin, quespmax)
         st.dataframe(stats_df.style.format("{:.4f}"))
         st_functions.save_df_to_csv(stats_df, save_path)
-        st.warning('Plot colorbars and statistics are displayed within the 5-95th percentile range per ROI.')
 
     if "WASSR" in submitted['selection']:
         st.header('WASSR Results')

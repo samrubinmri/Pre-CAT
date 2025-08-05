@@ -60,7 +60,7 @@ def plot_t1_map(t1_fits, reference_image, masks, save_path):
     	os.makedirs(image_path)
     plt.savefig(os.path.join(image_path, 'T1_Maps.png'), dpi=300, bbox_inches="tight")
 
-def plot_quesp_maps(quesp_fits, masks, reference_image, save_path):
+def plot_quesp_maps(quesp_fits, masks, reference_image, save_path, plotmin, plotmax):
     """
     Reconstructs and plots fb, kb, and R² maps for each fitted pool,
     using robust percentile-based colormaps to handle outliers.
@@ -104,10 +104,10 @@ def plot_quesp_maps(quesp_fits, masks, reference_image, save_path):
         
         # Calculate robust color limits using percentiles to ignore outliers
         valid_fb = fb_map[combined_mask]
-        fb_vmin, fb_vmax = (np.nanpercentile(valid_fb, [5, 95]) if np.any(valid_fb) else (0, 0.1))
+        fb_vmin, fb_vmax = (np.nanpercentile(valid_fb, [plotmin, plotmax]) if np.any(valid_fb) else (0, 0.1))
 
         valid_kb = kb_map[combined_mask]
-        kb_vmin, kb_vmax = (np.nanpercentile(valid_kb, [5, 95]) if np.any(valid_kb) else (0, 2000))
+        kb_vmin, kb_vmax = (np.nanpercentile(valid_kb, [plotmin, plotmax]) if np.any(valid_kb) else (0, 2000))
         
         # Plotting the three maps
         fig, axs = plt.subplots(1, 3, figsize=(24, 8))
@@ -153,7 +153,7 @@ def plot_quesp_maps(quesp_fits, masks, reference_image, save_path):
         plt.savefig(os.path.join(image_path, f'{pool_name}_QUESP_Maps.png'), dpi=300, bbox_inches="tight")
 
 
-def calculate_quesp_stats(quesp_fits, t1_fits):
+def calculate_quesp_stats(quesp_fits, t1_fits, statmin, statmax):
     """
     Calculates statistics (mean, std) for each ROI and chemical pool,
     including T1 values, and excludes outliers.
@@ -169,8 +169,8 @@ def calculate_quesp_stats(quesp_fits, t1_fits):
             t1_values = np.array(t1_fits[roi_label])
             t1_valid = t1_values[~np.isnan(t1_values)]
             if t1_valid.size > 0:
-                t1_p5, t1_p95 = np.percentile(t1_valid, [5, 95])
-                t1_filtered = t1_valid[(t1_valid >= t1_p5) & (t1_valid <= t1_p95)]
+                t1_min, t1_max = np.percentile(t1_valid, [statmin, statmax])
+                t1_filtered = t1_valid[(t1_valid >= t1_min) & (t1_valid <= t1_max)]
                 t1_mean = np.mean(t1_filtered)
                 t1_std = np.std(t1_filtered)
             else:
@@ -185,8 +185,8 @@ def calculate_quesp_stats(quesp_fits, t1_fits):
             fb_values = np.array(params['fb_values'])
             fb_valid = fb_values[~np.isnan(fb_values)]
             if fb_valid.size > 0:
-                fb_p5, fb_p95 = np.percentile(fb_valid, [5, 95])
-                fb_filtered = fb_valid[(fb_valid >= fb_p5) & (fb_valid <= fb_p95)]
+                fb_min, fb_max = np.percentile(fb_valid, [statmin, statmax])
+                fb_filtered = fb_valid[(fb_valid >= fb_min) & (fb_valid <= fb_max)]
                 fb_mean = np.mean(fb_filtered)
                 fb_std = np.std(fb_filtered)
             else:
@@ -196,16 +196,17 @@ def calculate_quesp_stats(quesp_fits, t1_fits):
             kb_values = np.array(params['kb_values'])
             kb_valid = kb_values[~np.isnan(kb_values)]
             if kb_valid.size > 0:
-                kb_p5, kb_p95 = np.percentile(kb_valid, [5, 95])
-                kb_filtered = kb_valid[(kb_valid >= kb_p5) & (kb_valid <= kb_p95)]
+                kb_min, kb_max = np.percentile(kb_valid, [statmin, statmax])
+                kb_filtered = kb_valid[(kb_valid >= kb_min) & (kb_valid <= kb_max)]
                 kb_mean = np.mean(kb_filtered)
                 kb_std = np.std(kb_filtered)
             else:
                 kb_mean, kb_std = np.nan, np.nan
 
             r2_values = np.array(params['r2_values'])
-            r2_p5, r2_p95 = np.percentile(r2_values, [5, 95])
-            r2_filtered = r2_values[(r2_values >= r2_p5) & (r2_values <= r2_p95)]
+            r2_valid = r2_values[~np.isnan(r2_values)]
+            r2_min, r2_max = np.percentile(r2_valid, [statmin, statmax])
+            r2_filtered = r2_valid[(r2_valid >= r2_min) & (r2_valid <= r2_max)]
             r2_mean = np.mean(r2_filtered)
 
             stats_list.append({
