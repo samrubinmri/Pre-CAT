@@ -1,2 +1,23 @@
+<<<<<<< HEAD
 .DS_Store
 *.pyc
+=======
+# Annoying files
+.DS_Store
+*.pyc
+
+# Compiled simulation library and cloned pypulseq
+/open-py-cest-mrf/cest_mrf/sim_lib/build/
+/open-py-cest-mrf/cest_mrf/pypulseq/
+/open-py-cest-mrf/cest_mrf/sim_lib/BMCSimulator.py
+/open-py-cest-mrf/cest_mrf/sim_lib/BMCSimulator_wrap.cpp
+/open-py-cest-mrf/build
+/open-py-cest-mrf/cest_mrf.egg-info
+/open-py-cest-mrf/cest_mrf/sim_lib/BMCSimulator.egg-info
+/open-py-cest-mrf/cest_mrf/sim_lib/_BMCSimulator.cpython-39-darwin.so
+
+# Ignore all files in configs directory
+configs/*
+# But do NOT ignore example_config.py
+!configs/example_config.py
+>>>>>>> upstream/main

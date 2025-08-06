@@ -1,5 +1,6 @@
 name: pre-cat
 channels:
+<<<<<<< HEAD
   - defaults
   - conda-forge
 dependencies:
@@ -113,3 +114,37 @@ dependencies:
       - toml==0.10.2
       - typing-extensions==4.12.2
       - urllib3==2.3.0
+=======
+  - conda-forge
+  - defaults
+dependencies:
+  # Core requirements
+  - python = 3.9.16
+  - pip
+  - git
+
+  # For compiling cest-mrf's sim_lin
+  - cxx-compiler
+  - swig
+
+  # Main application and analysis packages
+  - numpy
+  - scipy
+  - matplotlib
+  - pydicom
+  - pandas
+  - streamlit=1.40.0
+  - plotly
+  - pillow
+  - tqdm
+  - pyyaml
+  - scikit-learn
+  - seaborn
+  - sigpy 
+  - h5py
+
+  # Pip-installed packages
+  - pip:
+    - bmctool
+    - streamlit-drawable-canvas
+>>>>>>> upstream/main
