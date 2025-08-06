@@ -110,8 +110,8 @@ def denoise_data(image_stack):
         denominator = n_samples_m * ((n_features_n - (i-1))**5)
         indicator_values.append(np.sqrt(numerator / denominator) if denominator > 1e-9 else np.inf)
     n_components_to_keep = np.argmin(indicator_values) + 1
-    st.warning(f"Denoising with {n_components_to_keep} components.")
-    st_functions.message_logging(f"Denoised with {n_components_to_keep} components.", msg_type='info')
+    #st.warning(f"Denoising with {n_components_to_keep} components.")
+    #st_functions.message_logging(f"Denoised with {n_components_to_keep} components.", msg_type='info')
     pca_denoising = PCA(n_components=n_components_to_keep)
     transformed_data = pca_denoising.fit_transform(data_matrix)
     denoised_data_matrix = pca_denoising.inverse_transform(transformed_data)
